@@ -18,6 +18,7 @@ Sistema móvil de control de dinero, cuentas de clientes, tienda, servicios y ca
 | [`docs/PROYECTO.md`](./docs/PROYECTO.md) | Documento maestro: alcance, UX, datos, arquitectura |
 | [`docs/DECISIONES.md`](./docs/DECISIONES.md) | Historial de decisiones y sus motivos |
 | [`docs/AVANCES.md`](./docs/AVANCES.md) | Bitácora de progreso por sesión |
+| [`docs/SUPABASE.md`](./docs/SUPABASE.md) | Proyecto, bucket y respaldo cifrado |
 
 ## Estado
 

@@ -14,7 +14,7 @@ No reemplaza al documento maestro ni al registro de decisiones.
 | 4. Cierre y reportes | Pendiente |
 | 5. Cuentas de clientes | Pendiente |
 | 6. Servicios y remesas | Pendiente |
-| 7. Respaldo cifrado | Pendiente |
+| 7. Respaldo cifrado | Infraestructura remota creada; integración pendiente |
 | 8. Auditoría y endurecimiento | Pendiente |
 | 9. Pruebas E2E e instalación | Pendiente |
 
@@ -105,6 +105,43 @@ Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 **Notas:**
 - No se instalaron skills de Supabase todavía.
 - No se guardaron secretos en el repositorio; la autenticación OAuth vive fuera de la configuración.
+
+---
+
+## 2026-11-16 — Sesión 0.3: infraestructura de respaldo en Supabase
+
+**Objetivo:** verificar la conexión y preparar el almacenamiento remoto de respaldos.
+
+**Hecho:**
+- Se verificó el proyecto Supabase `lmktjrvmfvirsactdwqe`.
+- El proyecto estaba limpio: sin tablas, migraciones ni avisos de seguridad.
+- Se creó la migración `20261116222406_backup_infrastructure`.
+- Se creó el bucket privado `mariel-backups` con límite de 50 MB por archivo.
+- Se creó `public.backup_manifests` con RLS por `auth.uid()`.
+- Se crearon políticas de Storage limitadas a la carpeta del usuario.
+- Se verificaron tabla, bucket, políticas y asesores de seguridad.
+- Se replicó la migración en `supabase/migrations/`.
+- Se documentó todo en `docs/SUPABASE.md`.
+
+**Decisiones:**
+- El bucket es privado y solo guarda blobs cifrados.
+- Los manifiestos son inmutables: SELECT, INSERT y DELETE; sin UPDATE.
+- La ruta incluye el `user_id` como primer segmento para que RLS aísle a cada usuario.
+- No se guardó ninguna clave en el repositorio.
+
+**Pruebas:**
+- `opencode mcp list`: conectado.
+- `list_tables`: `backup_manifests` con RLS habilitado.
+- `get_advisors(security)`: sin hallazgos.
+- `get_advisors(health)`: sin hallazgos.
+- `get_advisors(performance)`: aviso informativo de índice sin uso; esperado porque la tabla está vacía.
+- Bucket y políticas verificados por consulta SQL.
+
+**Pendiente / siguiente:**
+- Crear la cuenta de la dueña y desactivar el registro público.
+- Integrar subida/descarga cifrada desde la PWA.
+- Probar RLS con dos usuarios y restaurar una copia en un contexto limpio.
+- Scaffold de la PWA y primer bloque de cobro móvil.
 
 ---
 

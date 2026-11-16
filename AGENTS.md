@@ -4,6 +4,7 @@
 > Detalle amplio: `docs/PROYECTO.md`
 > Decisiones y motivos: `docs/DECISIONES.md`
 > Estado y bitácora: `docs/AVANCES.md`
+> Respaldo en Supabase: `docs/SUPABASE.md`
 
 ## 1. Qué es esto
 
@@ -71,6 +72,18 @@ Vender producto o servicio → elegir pago (efectivo, QR o mixto) → registrar 
 - npm workspaces (no hay pnpm instalado)
 - Hosting estático de la PWA con HTTPS
 
+### Supabase
+
+- Proyecto: `lmktjrvmfvirsactdwqe`
+- URL: `https://lmktjrvmfvirsactdwqe.supabase.co`
+- Bucket privado: `mariel-backups` (50 MB por archivo)
+- Tabla de manifiestos: `public.backup_manifests` con RLS por `auth.uid()`
+- Migración remota: `20261116222406_backup_infrastructure`
+- El snapshot se cifra en el teléfono antes de subir.
+- La `service_role` nunca se usa en el cliente ni se guarda en el repositorio.
+- La autenticación de la dueña y la integración desde la PWA están pendientes.
+- Supabase no es base operativa ni participa en ventas, caja o cuentas.
+
 ## 7. Estructura objetivo
 
 ```text
@@ -114,6 +127,9 @@ docs/
 - Repositorio remoto: `https://github.com/OsviTap/SistemaCuentas.git`
 - Rama principal: `main`
 - Documentación base creada y publicada.
+- MCP de Supabase conectado y autenticado.
+- Infraestructura remota de respaldo creada: bucket privado, tabla de manifiestos y RLS.
+- La integración de respaldo desde la app y la cuenta de la dueña están pendientes.
 - Código de la aplicación: **no iniciado**.
 - Próximo hito: scaffold del proyecto + `MoneyKeypad` + `ChangeCalculator` + `PaymentSheet` móvil.
 - No afirmar que una función existe si no está implementada y probada.

@@ -1,8 +1,8 @@
 # Sistema Mariel — Documento maestro
 
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Fecha:** 2026-11-16  
-**Estado:** arquitectura inicial aprobada. Código pendiente.  
+**Estado:** arquitectura inicial aprobada e infraestructura de respaldo creada. Código pendiente.  
 **Uso:** documento canónico. Si el código contradice este documento, el código está mal hasta que se apruebe un cambio.
 
 ---
@@ -761,6 +761,14 @@ Supabase, exclusivamente para:
 - bucket privado de respaldos;
 - tabla de manifiesto de copias.
 
+Datos concretos del proyecto:
+
+- Project ref: `lmktjrvmfvirsactdwqe`
+- URL: `https://lmktjrvmfvirsactdwqe.supabase.co`
+- Bucket: `mariel-backups` (privado, 50 MB por archivo)
+- Tabla: `public.backup_manifests` con RLS
+- Migración: `20261116222406_backup_infrastructure`
+
 No se usa para consultas operativas ni para sincronización entre dispositivos en la v1.
 
 ### 10.2 Contenido de una copia
@@ -812,6 +820,22 @@ No se usa para consultas operativas ni para sincronización entre dispositivos e
 - Copia corrupta: validar hash y ofrecer otra copia.
 - Versión de esquema incompatible: migrar o pedir actualización.
 - Storage lleno: alertar y permitir limpiar copias antiguas.
+
+### 10.8 Estado de implementación
+
+A fecha 2026-11-16:
+
+- [x] Proyecto Supabase creado.
+- [x] MCP de OpenCode conectado y autenticado.
+- [x] Bucket privado `mariel-backups` creado.
+- [x] Tabla `backup_manifests` creada con RLS.
+- [x] Políticas de Storage por `user_id`.
+- [x] Migración remota aplicada.
+- [x] Asesores de seguridad sin hallazgos.
+- [ ] Cuenta de la dueña creada.
+- [ ] Registro público desactivado.
+- [ ] Integración de subida/descarga desde la PWA.
+- [ ] Prueba de restauración completa.
 
 ---
 
@@ -1051,6 +1075,8 @@ Estas no bloquean el inicio, pero deben resolverse antes de la fase indicada:
 - Clave de recuperación: palabras, código o archivo (fase 6).
 - Umbral de diferencia de caja que exige PIN (fase 3).
 - Nombre y datos que aparecerán en el resumen compartido (fase 3).
+- Email definitivo de la cuenta de respaldo y política de recuperación (fase 6).
+- Momento para desactivar el registro público de Supabase (fase 6).
 
 ---
 
@@ -1081,3 +1107,4 @@ Estas no bloquean el inicio, pero deben resolverse antes de la fase indicada:
 | Versión | Fecha | Cambio |
 |---|---|---|
 | 1.0 | 2026-11-16 | Documento inicial; arquitectura móvil local-first, sin tickets, con respaldo cifrado |
+| 1.1 | 2026-11-16 | Infraestructura Supabase de respaldo creada y verificada; integración pendiente |
