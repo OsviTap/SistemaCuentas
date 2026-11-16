@@ -111,8 +111,9 @@ docs/
 
 **Fecha:** 2026-11-16
 
-- Repositorio vacío al inicio; solo existe `.git`.
-- Documentación base creada.
+- Repositorio remoto: `https://github.com/OsviTap/SistemaCuentas.git`
+- Rama principal: `main`
+- Documentación base creada y publicada.
 - Código de la aplicación: **no iniciado**.
 - Próximo hito: scaffold del proyecto + `MoneyKeypad` + `ChangeCalculator` + `PaymentSheet` móvil.
 - No afirmar que una función existe si no está implementada y probada.

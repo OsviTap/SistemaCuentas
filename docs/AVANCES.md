@@ -63,6 +63,27 @@ Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 
 ---
 
+## 2026-11-16 — Sesión 0.1: repositorio remoto
+
+**Objetivo:** conectar el proyecto con GitHub y publicar la documentación inicial.
+
+**Hecho:**
+- Se agregó `origin` apuntando a `https://github.com/OsviTap/SistemaCuentas.git`.
+- Se renombró la rama local `master` a `main`.
+- Se publicó el commit inicial con toda la documentación.
+- Se actualizó el README y el contexto con la ubicación del repositorio.
+
+**Decisiones:**
+- Rama principal única: `main`.
+- El repositorio no contiene secretos ni bases locales.
+
+**Pruebas:** `git push` completado; el remoto aceptó la rama `main`.
+
+**Pendiente / siguiente:**
+- Scaffold de la PWA y primer bloque de cobro móvil.
+
+---
+
 ## Plantilla para próximas sesiones
 
 ```text

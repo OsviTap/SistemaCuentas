@@ -2,6 +2,8 @@
 
 Sistema móvil de control de dinero, cuentas de clientes, tienda, servicios y caja diaria para una persona que atiende mostrador.
 
+**Repositorio:** <https://github.com/OsviTap/SistemaCuentas>
+
 - **Uso principal:** celular Android, PWA instalada.
 - **Modo de operación:** unipersonal, local-first, sin dependencia de internet.
 - **Moneda:** bolivianos (BOB).
