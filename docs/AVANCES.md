@@ -84,6 +84,30 @@ Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 
 ---
 
+## 2026-11-16 — Sesión 0.2: MCP de Supabase
+
+**Objetivo:** conectar OpenCode con el proyecto Supabase `lmktjrvmfvirsactdwqe`.
+
+**Hecho:**
+- Se revisó la configuración global `C:\Users\johan\.config\opencode\opencode.jsonc`.
+- Se adaptó el snippet de Supabase al formato de OpenCode V2:
+  - `mcp.servers.supabase` en lugar de `mcp.supabase`.
+  - Se omitió `enabled: true`; en V2 el campo correcto es `disabled`.
+- El servidor remoto quedó registrado con el endpoint MCP del proyecto.
+- `opencode mcp list` detecta `supabase` y reporta `needs authentication`.
+
+**Pendiente:**
+- Autenticar con `/mcps` → `supabase` → iniciar sesión en el navegador.
+- Verificar conexión y listar tablas/recursos del proyecto.
+- Crear bucket privado y tabla de manifiesto de respaldos cuando se implemente la fase 6.
+- Evaluar la instalación opcional de `supabase/agent-skills` después de validar la conexión.
+
+**Notas:**
+- No se instalaron skills de Supabase todavía.
+- No se guardaron secretos en el repositorio; la autenticación OAuth vive fuera de la configuración.
+
+---
+
 ## Plantilla para próximas sesiones
 
 ```text
