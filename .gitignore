@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+.vite/
+coverage/
+playwright-report/
+test-results/
+
+# Variables y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Datos locales y respaldos
+*.db
+*.sqlite
+*.sqlite3
+data/
+backups/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Supabase local
+supabase/.temp/
+.supabase/
