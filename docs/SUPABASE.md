@@ -71,8 +71,29 @@ Supabase **no participa** en ventas, caja, cuentas de clientes ni consultas diar
 - La dueña tendrá una cuenta de Supabase con email y contraseña.
 - La autenticación se usa solo para respaldar y restaurar.
 - La app se desbloquea con PIN local; no depende de Supabase para abrir.
-- Después de crear la cuenta de la dueña, se debe desactivar el registro público en Supabase para evitar altas ajenas.
 - No se debe crear ni compartir un usuario genérico.
+
+### Estado real (2026-11-16)
+
+- `auth.users` está vacía: no existe ninguna cuenta.
+- El **proveedor Email está desactivado** (`external.email = false`).
+- Por eso hoy **nadie puede registrarse ni iniciar sesión**, aunque el interruptor
+  `disable_signup` siga en `false`.
+- `mailer_autoconfirm` está en `false`: cuando se cree la cuenta, habrá que confirmar el correo.
+
+### Configuración correcta antes de la fase 6
+
+Al implementar el respaldo hay que dejar el proyecto así:
+
+1. **Reactivar** el proveedor Email en
+   `Authentication → Sign In / Providers → Email`.
+2. **Apagar** `Allow new users to sign up` en ese mismo panel.
+3. Crear la cuenta de la dueña (dashboard o pantalla de respaldo de la PWA).
+4. Confirmar el correo.
+
+Mientras el proveedor Email siga apagado, el proyecto está cerrado por ausencia de método
+de acceso, no por el interruptor de registro. Es seguro para esta etapa, pero no es la
+configuración final.
 
 ## 5. Integración en la app (pendiente)
 
@@ -115,7 +136,8 @@ Reglas:
 
 ## 8. Pruebas pendientes
 
-- [ ] Crear la cuenta de la dueña y desactivar registro público.
+- [ ] Reactivar proveedor Email y apagar `Allow new users to sign up` (fase 6).
+- [ ] Crear la cuenta de la dueña.
 - [ ] Iniciar sesión desde la PWA.
 - [ ] Subir un blob cifrado de prueba.
 - [ ] Listar y descargar el blob.

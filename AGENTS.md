@@ -81,7 +81,9 @@ Vender producto o servicio → elegir pago (efectivo, QR o mixto) → registrar 
 - Migración remota: `20261116222406_backup_infrastructure`
 - El snapshot se cifra en el teléfono antes de subir.
 - La `service_role` nunca se usa en el cliente ni se guarda en el repositorio.
-- La autenticación de la dueña y la integración desde la PWA están pendientes.
+- El proveedor de Email de Supabase está desactivado: hoy nadie puede registrarse ni iniciar sesión. Antes de la fase 6 hay que reactivarlo y apagar `Allow new users to sign up`.
+- La cuenta de la dueña no existe todavía.
+- La integración de respaldo desde la PWA está pendiente.
 - Supabase no es base operativa ni participa en ventas, caja o cuentas.
 
 ## 7. Estructura objetivo

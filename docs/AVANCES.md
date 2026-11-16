@@ -145,6 +145,32 @@ Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 
 ---
 
+## 2026-11-16 — Sesión 0.4: revisión del acceso a Supabase
+
+**Objetivo:** verificar el estado de autenticación después de los cambios en el dashboard.
+
+**Hecho:**
+- Se consultó `auth/v1/settings` y `auth.users`.
+- `auth.users` sigue vacía: no existe ninguna cuenta.
+- Se detectó que se desactivó el **proveedor Email** (`external.email = false`), no el interruptor de registro público.
+- Efecto actual: nadie puede registrarse ni iniciar sesión, porque no hay método de acceso habilitado.
+- Se documentó la configuración final requerida para la fase 6.
+
+**Decisiones:**
+- Dejar la cuenta de respaldo y la passphrase para la fase 6, por pedido del usuario.
+- No se crea ninguna cuenta ahora.
+- El proyecto permanece cerrado mientras el proveedor Email esté apagado.
+
+**Pruebas:**
+- `GET /auth/v1/settings`: `disable_signup = false`, `external.email = false`, `mailer_autoconfirm = false`.
+- `select count(*) from auth.users`: `0`.
+
+**Pendiente / siguiente:**
+- Fase 6: reactivar Email, apagar `Allow new users to sign up`, crear la cuenta y confirmar el correo.
+- Scaffold de la PWA y primer bloque de cobro móvil.
+
+---
+
 ## Plantilla para próximas sesiones
 
 ```text
