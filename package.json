@@ -1,0 +1,19 @@
+{
+  "name": "sistema-mariel",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @mariel/web",
+    "build": "npm run build -w @mariel/web",
+    "preview": "npm run preview -w @mariel/web",
+    "test": "npm run test -w @mariel/web",
+    "typecheck": "npm run typecheck -w @mariel/web"
+  },
+  "engines": {
+    "node": ">=20.17"
+  }
+}

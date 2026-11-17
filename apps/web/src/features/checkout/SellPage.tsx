@@ -1,0 +1,250 @@
+import { useMemo, useState } from 'react';
+import { formatBs } from '../../lib/money';
+import { PaymentSheet } from './PaymentSheet';
+import type { SalePaymentInput } from './payments';
+
+type DemoProduct = {
+  id: string;
+  name: string;
+  priceCents: number;
+};
+
+/**
+ * Catálogo de demostración. Vive en memoria hasta la fase de catálogo real
+ * con Dexie. No representa datos de producción.
+ */
+const PRODUCTS: DemoProduct[] = [
+  { id: 'pan-queso', name: 'Pan de queso', priceCents: 300 },
+  { id: 'empanada', name: 'Empanada', priceCents: 500 },
+  { id: 'cafe', name: 'Café', priceCents: 500 },
+  { id: 'refresco', name: 'Refresco', priceCents: 700 },
+  { id: 'agua', name: 'Agua', priceCents: 400 },
+  { id: 'recarga', name: 'Recarga', priceCents: 2000 }
+];
+
+type ConfirmedSale = {
+  payments: SalePaymentInput[];
+  changeCents: number;
+  totalCents: number;
+};
+
+function methodsSummary(payments: SalePaymentInput[]): string {
+  return payments
+    .map((payment) =>
+      payment.method === 'cash' ? `Efectivo ${formatBs(payment.amountCents)}` : `QR ${formatBs(payment.amountCents)}`
+    )
+    .join(' + ');
+}
+
+function qrReference(payments: SalePaymentInput[]): string | null {
+  const qr = payments.find((payment) => payment.method === 'qr');
+  return qr ? qr.qrReference : null;
+}
+
+export function SellPage() {
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [confirmed, setConfirmed] = useState<ConfirmedSale | null>(null);
+
+  const lines = useMemo(() => {
+    return PRODUCTS.flatMap((product) => {
+      const quantity = cart[product.id] ?? 0;
+      if (quantity <= 0) return [];
+      return [{ product, quantity, subtotalCents: product.priceCents * quantity }];
+    });
+  }, [cart]);
+
+  const totalCents = lines.reduce((sum, line) => sum + line.subtotalCents, 0);
+  const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+
+  const addProduct = (productId: string) => {
+    setCart((current) => ({ ...current, [productId]: (current[productId] ?? 0) + 1 }));
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(8);
+    }
+  };
+
+  const removeProduct = (productId: string) => {
+    setCart((current) => {
+      const quantity = (current[productId] ?? 0) - 1;
+      const next = { ...current };
+      if (quantity <= 0) {
+        delete next[productId];
+      } else {
+        next[productId] = quantity;
+      }
+      return next;
+    });
+  };
+
+  const clearCart = () => setCart({});
+
+  const handleConfirm = (result: { payments: SalePaymentInput[]; changeCents: number }) => {
+    setSheetOpen(false);
+    setConfirmed({ ...result, totalCents });
+    setCart({});
+  };
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="shrink-0 px-4 pt-4 pb-2">
+        <p className="text-xs font-medium tracking-wide text-ink-500 uppercase">Mostrador</p>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-ink-900">Vender</h1>
+          {itemCount > 0 ? (
+            <button
+              type="button"
+              onClick={clearCart}
+              className="rounded-lg px-3 py-1 text-sm font-medium text-ink-500 active:bg-ink-200"
+            >
+              Vaciar
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <div className="grid grid-cols-2 gap-2">
+          {PRODUCTS.map((product) => {
+            const quantity = cart[product.id] ?? 0;
+            return (
+              <button
+                key={product.id}
+                type="button"
+                onClick={() => addProduct(product.id)}
+                className="relative flex min-h-24 flex-col justify-between rounded-2xl bg-white p-4 text-left shadow-sm active:bg-ink-100"
+              >
+                <span className="text-base leading-tight font-semibold text-ink-900">
+                  {product.name}
+                </span>
+                <span className="tabular mt-2 text-lg font-bold text-brand-700">
+                  {formatBs(product.priceCents)}
+                </span>
+                {quantity > 0 ? (
+                  <span className="absolute top-2 right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs font-bold text-white">
+                    {quantity}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        {lines.length > 0 ? (
+          <section className="mt-4" aria-label="Carrito">
+            <h2 className="mb-2 text-xs font-semibold tracking-wide text-ink-500 uppercase">
+              Carrito
+            </h2>
+            <ul className="divide-y divide-ink-100 overflow-hidden rounded-2xl bg-white">
+              {lines.map((line) => (
+                <li key={line.product.id} className="flex items-center gap-2 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink-900">
+                      {line.product.name}
+                    </p>
+                    <p className="tabular text-xs text-ink-500">
+                      {formatBs(line.product.priceCents)} c/u
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => removeProduct(line.product.id)}
+                      aria-label={`Quitar uno de ${line.product.name}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-ink-100 text-lg font-bold text-ink-700 active:bg-ink-200"
+                    >
+                      −
+                    </button>
+                    <span className="tabular w-6 text-center text-sm font-bold">{line.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => addProduct(line.product.id)}
+                      aria-label={`Agregar uno de ${line.product.name}`}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-ink-100 text-lg font-bold text-ink-700 active:bg-ink-200"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="tabular w-20 text-right text-sm font-bold text-ink-900">
+                    {formatBs(line.subtotalCents)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <p className="mt-6 px-2 text-center text-sm text-ink-500">
+            Toca un producto para agregarlo.
+          </p>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t border-ink-200 bg-white px-4 py-3">
+        <div className="mb-2 flex items-end justify-between">
+          <span className="text-sm font-medium text-ink-600">
+            {itemCount === 0
+              ? 'Sin productos'
+              : `${itemCount} ${itemCount === 1 ? 'producto' : 'productos'}`}
+          </span>
+          <span className="tabular text-2xl font-black text-ink-900">{formatBs(totalCents)}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSheetOpen(true)}
+          disabled={totalCents <= 0}
+          className={[
+            'h-14 w-full rounded-2xl text-lg font-bold transition-colors',
+            totalCents > 0
+              ? 'bg-brand-600 text-white active:bg-brand-700'
+              : 'bg-ink-200 text-ink-400'
+          ].join(' ')}
+        >
+          Cobrar
+        </button>
+      </div>
+
+      {sheetOpen ? (
+        <PaymentSheet
+          totalCents={totalCents}
+          onCancel={() => setSheetOpen(false)}
+          onConfirm={handleConfirm}
+        />
+      ) : null}
+
+      {confirmed ? (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-ink-100 px-6 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-600 text-3xl text-white">
+            ✓
+          </div>
+          <h2 className="mt-4 text-2xl font-bold text-ink-900">Cobro confirmado</h2>
+          <p className="tabular mt-1 text-4xl font-black text-ink-900">
+            {formatBs(confirmed.totalCents)}
+          </p>
+          <p className="mt-2 text-sm font-medium text-ink-600">
+            {methodsSummary(confirmed.payments)}
+          </p>
+          {qrReference(confirmed.payments) ? (
+            <p className="mt-1 text-sm text-ink-500">Ref. QR: {qrReference(confirmed.payments)}</p>
+          ) : null}
+          {confirmed.changeCents > 0 ? (
+            <p className="tabular mt-2 rounded-xl bg-brand-100 px-4 py-2 text-lg font-bold text-brand-800">
+              Cambio {formatBs(confirmed.changeCents)}
+            </p>
+          ) : null}
+
+          <p className="mt-6 max-w-xs text-xs text-ink-400">
+            Demostración: esta venta todavía no se guarda en la base local.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setConfirmed(null)}
+            className="mt-4 h-14 w-full max-w-xs rounded-2xl bg-ink-900 text-lg font-bold text-white active:bg-ink-800"
+          >
+            Nueva venta
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}

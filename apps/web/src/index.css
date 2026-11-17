@@ -1,0 +1,67 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-brand-50: #eefaf3;
+  --color-brand-100: #d6f3e2;
+  --color-brand-200: #aee6c6;
+  --color-brand-300: #78d3a3;
+  --color-brand-400: #3fbb7d;
+  --color-brand-500: #169e60;
+  --color-brand-600: #0b7f4d;
+  --color-brand-700: #0a6540;
+  --color-brand-800: #0a5135;
+  --color-brand-900: #08422d;
+
+  --color-ink-50: #f7f7f6;
+  --color-ink-100: #e9e8e5;
+  --color-ink-200: #d4d2cc;
+  --color-ink-300: #b0ada4;
+  --color-ink-400: #858177;
+  --color-ink-500: #6a665d;
+  --color-ink-600: #545049;
+  --color-ink-700: #45423d;
+  --color-ink-800: #2a2825;
+  --color-ink-900: #1a1917;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-ink-100);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
