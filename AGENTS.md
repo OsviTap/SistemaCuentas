@@ -61,14 +61,16 @@ Vender producto o servicio → elegir pago (efectivo, QR o mixto) → registrar 
 
 ## 6. Stack
 
-- React 19 + Vite + TypeScript
+- React 19 + Vite 8 + TypeScript
 - Tailwind CSS 4
 - Dexie + `dexie-react-hooks`
 - React Router
 - Zod para validación
 - `fflate` + Web Crypto para respaldo cifrado
 - Supabase para auth y almacenamiento privado del respaldo
+- `vite-plugin-pwa` para instalación y service worker
 - Vitest + Playwright
+- Node 22+ (el equipo usa Node 26)
 - npm workspaces (no hay pnpm instalado)
 - Hosting estático de la PWA con HTTPS
 
@@ -124,7 +126,7 @@ docs/
 
 ## 9. Estado actual
 
-**Fecha:** 2026-11-16
+**Fecha:** 2026-11-17
 
 - Repositorio remoto: `https://github.com/OsviTap/SistemaCuentas.git`
 - Rama principal: `main`
@@ -132,8 +134,13 @@ docs/
 - MCP de Supabase conectado y autenticado.
 - Infraestructura remota de respaldo creada: bucket privado, tabla de manifiestos y RLS.
 - La integración de respaldo desde la app y la cuenta de la dueña están pendientes.
-- Código de la aplicación: **no iniciado**.
-- Próximo hito: scaffold del proyecto + `MoneyKeypad` + `ChangeCalculator` + `PaymentSheet` móvil.
+- Scaffold de la PWA creado en `apps/web` con React 19, Vite 8, Tailwind 4, Dexie y `vite-plugin-pwa`.
+- Esquema Dexie v2 en `apps/web/src/db/db.ts`: clientes, cuentas, ventas, pagos, caja, catálogo, auditoría, respaldo e historial de calculadora.
+- Bloque de cobro móvil implementado: `MoneyKeypad`, `ChangeCalculator`, `PaymentSheet` (efectivo, QR y mixto) y una pantalla de venta de demostración.
+- Calculadora rápida con historial local, abierta desde una pestaña lateral en todas las pantallas.
+- Pruebas: `npm test` con 53 casos; `npm run build` compila la PWA.
+- **La venta todavía no se guarda en Dexie.** La pantalla de venta es una demostración de UI.
+- Próximo hito: confirmar el esquema y pasar a las pantallas reales de la fase 2 (sesión de caja, catálogo y venta transaccional).
 - No afirmar que una función existe si no está implementada y probada.
 
 ## 10. Protocolo para trabajar sin alucinar
@@ -151,4 +158,16 @@ docs/
 
 ## 11. Comandos
 
-Aún no hay scaffold. Se documentarán aquí cuando exista `package.json`.
+```bash
+npm install          # instalar dependencias (raíz, workspaces)
+npm run dev          # PWA en desarrollo → http://localhost:5173
+npm run build        # typecheck + build de producción con PWA
+npm run preview      # servir el build localmente
+npm test             # Vitest
+npm run typecheck    # TypeScript sin emitir
+npm run icons -w @mariel/web   # regenerar iconos PWA
+```
+
+- `node_modules/` y `dist/` no se versionan.
+- El `package-lock.json` sí se versiona.
+- No hay pnpm; usar npm.

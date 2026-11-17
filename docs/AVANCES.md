@@ -8,8 +8,8 @@ No reemplaza al documento maestro ni al registro de decisiones.
 | Fase | Estado |
 |---|---|
 | 0. Documentación y arquitectura | Completada |
-| 1. Scaffold y shell móvil | Pendiente |
-| 2. Cobro rápido (keypad, cambio, pagos) | Pendiente |
+| 1. Scaffold y shell móvil | Completada |
+| 2. Cobro rápido (keypad, cambio, pagos) | Componentes y validaciones listos; falta guardar la venta |
 | 3. Venta y caja mínima | Pendiente |
 | 4. Cierre y reportes | Pendiente |
 | 5. Cuentas de clientes | Pendiente |
@@ -20,11 +20,9 @@ No reemplaza al documento maestro ni al registro de decisiones.
 
 ## Próximo paso
 
-Crear el scaffold de la PWA y el primer bloque funcional móvil:
-
-1. `MoneyKeypad`
-2. `ChangeCalculator`
-3. `PaymentSheet` con efectivo, QR y mixto
+1. Revisar y aprobar el esquema Dexie v2 (`apps/web/src/db/db.ts`).
+2. Pasar a la fase 2: sesión de caja, catálogo persistente y venta transaccional.
+3. Integrar el cobro ya construido con Dexie en una sola transacción.
 
 Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 
@@ -168,6 +166,57 @@ Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 **Pendiente / siguiente:**
 - Fase 6: reactivar Email, apagar `Allow new users to sign up`, crear la cuenta y confirmar el correo.
 - Scaffold de la PWA y primer bloque de cobro móvil.
+
+---
+
+## 2026-11-17 — Sesión 1: scaffold, base local y cobro móvil
+
+**Objetivo:** crear la estructura de la PWA, el esquema completo de Dexie y los componentes de cobro; agregar una calculadora rápida con historial.
+
+**Hecho:**
+- Scaffold con npm workspaces en `apps/web`.
+- Vite 8, React 19, TypeScript 5.9, Tailwind CSS 4.
+- PWA con `vite-plugin-pwa`: manifest, service worker y precache del shell.
+- Iconos PWA generados con un script propio sin dependencias externas.
+- Shell móvil con barra inferior, áreas seguras y cuatro destinos.
+- Esquema Dexie v2 con 20 tablas: clientes, cuentas, ventas, pagos, caja, catálogo, auditoría, respaldo e historial de calculadora.
+- Siembra idempotente de configuración y contadores.
+- `MoneyKeypad` con teclado propio y límite de monto.
+- `ChangeCalculator` con cambio en tipografía grande y sugerencia de denominaciones.
+- `PaymentSheet` con efectivo, QR y mixto; valida que la suma sea el total.
+- Pantalla de venta de demostración con catálogo temporal en memoria.
+- Calculadora rápida con historial local de 50 entradas, abierta desde una pestaña lateral.
+- Pruebas unitarias y de IndexedDB con Vitest y `fake-indexeddb`.
+
+**Archivos principales:**
+- `package.json`, `apps/web/package.json`, `apps/web/vite.config.ts`, `apps/web/tsconfig.json`
+- `apps/web/src/app/` — shell, rutas y placeholders
+- `apps/web/src/db/db.ts` — esquema y siembra
+- `apps/web/src/lib/money.ts`, `dates.ts`, `ids.ts`
+- `apps/web/src/components/MoneyKeypad.tsx`
+- `apps/web/src/features/checkout/` — pagos, calculadora de cambio, hoja de cobro y venta demo
+- `apps/web/src/features/calculator/` — lógica, historial, hoja y lanzador
+- `apps/web/scripts/generate-icons.mjs` y `apps/web/public/`
+
+**Decisiones nuevas (ADR):**
+- ADR-018 — Calculadora rápida con historial local.
+
+**Pruebas ejecutadas:**
+- `npm run typecheck`: sin errores.
+- `npm test`: 53 pruebas en 5 archivos, todas pasan.
+- `npm run build`: build de producción con PWA; 16 entradas precacheadas.
+- Verificación en navegador: la app carga sin errores de consola; `12,5 × 3 =` devuelve `37,5` y queda en el historial; recuperar una entrada funciona.
+
+**Problemas encontrados:**
+- Node 20.17 no soportaba Vite 8. El usuario actualizó a Node 26.13.1.
+- `@vitejs/plugin-react` emite avisos de deprecación de `esbuild` en Vite 8. Son informativos y no afectan el build.
+
+**Pendiente / siguiente:**
+- Aprobar el esquema local.
+- Integrar la venta real en una transacción de Dexie.
+- Apertura de caja y catálogo persistente.
+- Resolver la navegación definitiva (ver decisión pendiente en `PROYECTO.md`).
+- La pantalla de venta actual **no guarda** la venta.
 
 ---
 

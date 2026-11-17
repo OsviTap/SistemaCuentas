@@ -271,3 +271,27 @@ Formato: cada decisión es un ADR corto. No se reescribe la historia; si una dec
 - La primera instalación requiere internet.
 - No se deben incluir secretos en el bundle; solo la clave pública de Supabase con RLS.
 - El service worker cachea el shell, no los respaldos.
+
+---
+
+## ADR-018 — Calculadora rápida con historial local
+
+**Fecha:** 2026-11-17  
+**Estado:** aceptada
+
+**Contexto:** la operadora necesita hacer cuentas sueltas en cualquier momento (precios, descuentos, vueltos, consultas de clientes) sin salir de la app ni abrir la calculadora del sistema, que pierde el contexto y no guarda historial.
+
+**Decisión:**
+- Calculadora general disponible en todas las pantallas mediante una pestaña lateral discreta en el borde derecho.
+- No se usa un botón flotante en la esquina inferior porque taparía el botón de cobrar o los productos.
+- Evaluación en orden de tecleo, sin precedencia, como una calculadora de mostrador.
+- Historial de los últimos 50 resultados confirmados con `=`, guardado en la tabla local `calculatorEntries`.
+- El historial se puede recuperar con un toque y borrar en dos pasos.
+- La calculadora **no** registra dinero, no toca caja y no reemplaza la calculadora de cambio del cobro.
+
+**Consecuencias:**
+- Se agregó la versión 2 del esquema Dexie.
+- El historial entra en el respaldo cifrado como una tabla más.
+- Los cálculos usan coma flotante de JavaScript redondeada para mostrar; no son aptos para persistir montos.
+- Si la operadora no la usa, la pestaña permanece discreta y no interfiere con el flujo de venta.
+

@@ -1,8 +1,8 @@
 # Sistema Mariel — Documento maestro
 
-**Versión:** 1.1  
-**Fecha:** 2026-11-16  
-**Estado:** arquitectura inicial aprobada e infraestructura de respaldo creada. Código pendiente.  
+**Versión:** 1.2  
+**Fecha:** 2026-11-17  
+**Estado:** scaffold implementado; cobro móvil y esquema local listos. Venta transaccional pendiente.  
 **Uso:** documento canónico. Si el código contradice este documento, el código está mal hasta que se apruebe un cambio.
 
 ---
@@ -244,6 +244,19 @@ Cada registro incluye actor, fecha, entidad, datos antes/después, motivo y auto
 - Permitir o no saldo negativo (por defecto no).
 - Datos del QR del negocio (titular/alias), solo informativos.
 
+### 4.10 Calculadora rápida
+
+- Utilidad general disponible en cualquier pantalla, no solo durante el cobro.
+- Se abre con una pestaña lateral discreta en el borde derecho, pensada para no tapar el botón de cobrar ni los productos.
+- Opera con sumas, restas, multiplicaciones, divisiones, porcentajes, cambio de signo y decimales.
+- Evalúa en el orden en que se teclea, sin precedencia de operadores, igual que una calculadora de mostrador.
+- El resultado se ve en tipografía grande.
+- Historial local de los últimos 50 cálculos confirmados con `=`, con expresión, resultado y fecha.
+- Un cálculo del historial se puede recuperar con un toque.
+- El historial se puede borrar en dos pasos.
+- **No participa en ventas, caja ni saldos.** Es una herramienta de consulta; los montos que se registran siguen pasando por la calculadora de cambio del cobro.
+- Usa coma flotante de JavaScript redondeada a 12 dígitos significativos. No se usa para guardar dinero.
+
 ---
 
 ## 5. Fuera de alcance
@@ -308,6 +321,7 @@ El botón de cobrar es fijo en la parte inferior de la pantalla de venta, respet
 | Catálogo | Productos, servicios, stock, disponible |
 | Auditoría | Acciones sensibles, detalle antes/después |
 | Respaldo | Estado, respaldar ahora, restaurar, passphrase |
+| Calculadora | Utilidad flotante con historial, disponible en cualquier pantalla |
 | Ajustes | Negocio, denominaciones, PIN, preferencias |
 
 ### 6.4 Flujo de venta
@@ -859,17 +873,38 @@ A fecha 2026-11-16:
 
 ### 12.1 Stack
 
-- React 19 + Vite + TypeScript
+- React 19 + Vite 8 + TypeScript
 - Tailwind CSS 4
-- Dexie + `dexie-react-hooks`
-- React Router
+- Dexie 4 + `dexie-react-hooks`
+- React Router 7
 - Zod
 - ULID
 - `fflate`
 - Web Crypto API
 - Supabase JS
-- Vitest + Playwright
+- `vite-plugin-pwa` 2 (manifest, service worker e instalación)
+- Vitest 5 + Playwright
+- Node 22+ (el equipo usa Node 26)
 - npm workspaces
+
+### 12.1.1 Estado del scaffold (2026-11-17)
+
+Implementado en `apps/web`:
+
+- Vite 8, React 19, TypeScript 5.9, Tailwind 4.
+- PWA con manifest, iconos generados sin dependencias y precache del shell.
+- Esquema Dexie v2 con 20 tablas.
+- `MoneyKeypad`, `ChangeCalculator`, `PaymentSheet`.
+- Calculadora rápida con historial local.
+- 53 pruebas unitarias y de base local con Vitest y `fake-indexeddb`.
+
+Todavía no implementado:
+
+- Venta transaccional en Dexie.
+- Sesión de caja y cierre.
+- Catálogo persistente.
+- Cuentas de clientes.
+- Respaldo y restauración.
 
 ### 12.2 Estructura
 
@@ -1077,6 +1112,12 @@ Estas no bloquean el inicio, pero deben resolverse antes de la fase indicada:
 - Nombre y datos que aparecerán en el resumen compartido (fase 3).
 - Email definitivo de la cuenta de respaldo y política de recuperación (fase 6).
 - Momento para desactivar el registro público de Supabase (fase 6).
+- **Navegación definitiva de la barra inferior (fase 2).** Hoy el shell usa
+  `Vender / Clientes / Caja / Más`. La propuesta inicial hablaba de
+  `Cobrar / Cuentas / Servicios / Caja`. Las dos opciones son válidas: la
+  primera prioriza la venta y deja servicios dentro de «Vender»; la segunda le
+  da a servicios una entrada propia. No se cambia hasta que la operadora elija,
+  porque afecta el orden de las pantallas y los accesos de una mano.
 
 ---
 
@@ -1108,3 +1149,4 @@ Estas no bloquean el inicio, pero deben resolverse antes de la fase indicada:
 |---|---|---|
 | 1.0 | 2026-11-16 | Documento inicial; arquitectura móvil local-first, sin tickets, con respaldo cifrado |
 | 1.1 | 2026-11-16 | Infraestructura Supabase de respaldo creada y verificada; integración pendiente |
+| 1.2 | 2026-11-17 | Scaffold PWA, esquema Dexie v2, componentes de cobro y calculadora con historial |
