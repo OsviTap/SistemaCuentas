@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { formatBs } from '../../lib/money';
 import { MoneyKeypad } from '../../components/MoneyKeypad';
+import { countRecentQrReferences } from '../../domain/sales';
+import { BusinessQrCard } from './BusinessQrCard';
 import { ChangeCalculator } from './ChangeCalculator';
 import {
   buildPayments,
@@ -13,7 +15,10 @@ import {
 type PaymentSheetProps = {
   totalCents: number;
   onCancel: () => void;
-  onConfirm: (result: { payments: SalePaymentInput[]; changeCents: number }) => void;
+  onConfirm: (result: {
+    payments: SalePaymentInput[];
+    changeCents: number;
+  }) => Promise<void> | void;
 };
 
 const METHODS: { id: PaymentMethod; label: string }[] = [
@@ -31,6 +36,9 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
   const [qrCents, setQrCents] = useState(0);
   const [activeField, setActiveField] = useState<MixedField>('cash');
   const [qrReference, setQrReference] = useState('');
+  const [duplicateCount, setDuplicateCount] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -39,6 +47,21 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
       document.body.style.overflow = previous;
     };
   }, []);
+
+  useEffect(() => {
+    if (method === 'cash' || qrReference.trim().length < MIN_QR_REFERENCE_LENGTH) {
+      setDuplicateCount(0);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void countRecentQrReferences(qrReference)
+        .then((count) => setDuplicateCount(count))
+        .catch(() => setDuplicateCount(0));
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [method, qrReference]);
 
   const draft: PaymentDraft = {
     method,
@@ -64,9 +87,23 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
   const otherAmount = activeField === 'cash' ? qrCents : cashCents;
   const remainderForActive = Math.max(totalCents - otherAmount, 0);
 
-  const handleConfirm = () => {
-    if (!validation.ok) return;
-    onConfirm({ payments: validation.payments, changeCents: validation.changeCents });
+  const handleConfirm = async () => {
+    if (!validation.ok || submitting) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await onConfirm({
+        payments: validation.payments,
+        changeCents: validation.changeCents
+      });
+    } catch (caught) {
+      setSubmitError(
+        caught instanceof Error ? caught.message : 'No se pudo guardar la venta.'
+      );
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -123,6 +160,8 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
 
         {method === 'qr' ? (
           <div className="flex flex-col gap-4">
+            <BusinessQrCard />
+
             <div className="rounded-3xl bg-ink-900 px-5 py-5 text-white">
               <p className="text-xs font-medium tracking-wide text-ink-300 uppercase">
                 Se cobra por QR
@@ -145,6 +184,13 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
               <span className="text-xs text-ink-500">
                 Mínimo {MIN_QR_REFERENCE_LENGTH} caracteres. Se avisará si se repite.
               </span>
+              {duplicateCount > 0 ? (
+                <span className="rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900">
+                  Esta referencia ya se usó {duplicateCount}{' '}
+                  {duplicateCount === 1 ? 'vez' : 'veces'} en las últimas 24 horas.
+                  Verifica el pago.
+                </span>
+              ) : null}
             </label>
           </div>
         ) : null}
@@ -196,6 +242,8 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
               </button>
             </div>
 
+            <BusinessQrCard compact />
+
             <MoneyKeypad valueCents={activeAmount} onChange={setActiveAmount} />
 
             <label className="flex flex-col gap-2">
@@ -210,28 +258,43 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
                 maxLength={40}
                 className="w-full rounded-2xl border border-ink-200 bg-white px-4 py-3 text-lg font-semibold tracking-wide uppercase outline-none focus:border-brand-500"
               />
+              {duplicateCount > 0 ? (
+                <span className="rounded-xl bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900">
+                  Esta referencia ya se usó {duplicateCount}{' '}
+                  {duplicateCount === 1 ? 'vez' : 'veces'} en las últimas 24 horas.
+                  Verifica el pago.
+                </span>
+              ) : null}
             </label>
           </div>
         ) : null}
 
-        {method !== 'cash' && !validation.ok ? (
+        {method !== 'cash' &&
+        !validation.ok &&
+        (qrReference.trim().length > 0 || cashCents > 0 || qrCents > 0) ? (
           <p className="mt-3 text-sm font-medium text-amber-700">{validation.error}</p>
+        ) : null}
+
+        {submitError ? (
+          <p className="mt-3 rounded-xl bg-rose-100 px-4 py-3 text-sm font-medium text-rose-800">
+            {submitError}
+          </p>
         ) : null}
       </div>
 
       <footer className="pb-safe shrink-0 border-t border-ink-200 bg-white px-4 pt-3">
         <button
           type="button"
-          onClick={handleConfirm}
-          disabled={!validation.ok}
+          onClick={() => void handleConfirm()}
+          disabled={!validation.ok || submitting}
           className={[
             'h-14 w-full rounded-2xl text-lg font-bold transition-colors',
-            validation.ok
+            validation.ok && !submitting
               ? 'bg-brand-600 text-white active:bg-brand-700'
               : 'bg-ink-200 text-ink-400'
           ].join(' ')}
         >
-          Cobrar {formatBs(totalCents)}
+          {submitting ? 'Guardando…' : `Cobrar ${formatBs(totalCents)}`}
         </button>
       </footer>
     </div>

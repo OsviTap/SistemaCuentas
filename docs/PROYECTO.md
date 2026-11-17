@@ -1,8 +1,8 @@
 # Sistema Mariel — Documento maestro
 
-**Versión:** 1.2  
+**Versión:** 1.3  
 **Fecha:** 2026-11-17  
-**Estado:** scaffold implementado; cobro móvil y esquema local listos. Venta transaccional pendiente.  
+**Estado:** venta real, caja de apertura, catálogo, QR de cobro e historial implementados. Cierre de caja pendiente.  
 **Uso:** documento canónico. Si el código contradice este documento, el código está mal hasta que se apruebe un cambio.
 
 ---
@@ -98,6 +98,7 @@ Los motivos están en [`DECISIONES.md`](./DECISIONES.md).
 
 - Catálogo de productos con: nombre, precio, categoría opcional, disponible/agotado, control de stock opcional.
 - Búsqueda predictiva por teclado o texto, sin acentos y sin distinguir mayúsculas.
+- Botón `+` de **producto rápido**: nombre y precio con teclado propio; se guarda en el catálogo y se agrega a la venta actual sin salir del mostrador.
 - Favoritos o productos frecuentes para agregar en un toque.
 - Carrito con cantidades, eliminar línea y total.
 - Stock simple:
@@ -176,6 +177,7 @@ Tres formas visibles: **Efectivo**, **QR**, **Mixto**. Además, si hay cliente s
   - botón `Exacto`;
   - teclado numérico propio.
 - QR:
+  - se muestra la imagen del QR del negocio cargada en Ajustes;
   - campo obligatorio de referencia de al menos 4 caracteres;
   - admite últimos 4 dígitos o número completo;
   - aviso si la referencia se repitió en las últimas 24 horas;
@@ -242,7 +244,7 @@ Cada registro incluye actor, fecha, entidad, datos antes/después, motivo y auto
 - PIN de autorización opcional.
 - Cuenta de respaldo y passphrase.
 - Permitir o no saldo negativo (por defecto no).
-- Datos del QR del negocio (titular/alias), solo informativos.
+- Imagen del QR de cobro cargada desde la galería, guardada en el teléfono y mostrada al cobrar.
 
 ### 4.10 Calculadora rápida
 
@@ -296,45 +298,47 @@ No implementar en la v1:
 
 ### 6.2 Navegación
 
-Barra inferior fija con cuatro destinos:
-
-1. **Vender**
-2. **Clientes**
-3. **Caja**
-4. **Más**
-
-El botón de cobrar es fijo en la parte inferior de la pantalla de venta, respetando `safe-area-inset-bottom`.
+- **Barra superior:** nombre del negocio y botón **Caja** con indicador de sesión abierta o cerrada.
+- **Barra inferior fija, cuatro destinos:**
+  1. **Vender** — productos de tienda.
+  2. **Cobrar** — servicios (luz, agua, recargas y otros).
+  3. **Clientes** — cuentas y saldos.
+  4. **Más** — historial, ajustes, respaldo y auditoría.
+- El botón de cobrar de una venta es fijo en la parte inferior de la pantalla de venta, respetando `safe-area-inset-bottom`.
+- El historial y los ajustes viven dentro de **Más** para no competir con las acciones diarias.
 
 ### 6.3 Pantallas
 
 | Pantalla | Contenido principal |
 |---|---|
 | Desbloqueo | PIN grande, teclado, recuperación |
-| Vender | Buscador, favoritos, productos/servicios, carrito inferior |
+| Vender | Buscador, productos, botón de producto rápido, carrito inferior |
 | Carrito | Líneas, cantidades, total, cliente, cobrar |
-| Cobro | Total, Efectivo/QR/Mixto, calculadora, referencia, cámara |
+| Cobro | Total, Efectivo/QR/Mixto, calculadora, referencia, QR del negocio |
+| Servicios | Cobro de luz, agua, recargas y otros; comisión y remesa |
 | Clientes | Búsqueda, saldo, últimos movimientos |
 | Detalle cliente | Saldo, depositar, retirar, transferir, historial |
 | Caja | Sesión actual, esperado, gastos, retiro, cerrar |
 | Cierre | Conteo, QR, resumen, diferencia, confirmación |
-| Reportes | X/Z, compartir, historial |
+| Historial | Pestañas Ventas / Caja / Cuentas, solo lectura |
 | Catálogo | Productos, servicios, stock, disponible |
 | Auditoría | Acciones sensibles, detalle antes/después |
 | Respaldo | Estado, respaldar ahora, restaurar, passphrase |
 | Calculadora | Utilidad flotante con historial, disponible en cualquier pantalla |
-| Ajustes | Negocio, denominaciones, PIN, preferencias |
+| Ajustes | Negocio, QR de cobro, denominaciones, PIN, preferencias |
 
 ### 6.4 Flujo de venta
 
 1. Tocar `Vender`.
-2. Buscar producto/servicio o tocar favorito.
-3. Ajustar cantidad en el carrito si hace falta.
-4. Tocar `Cobrar`.
-5. Elegir método.
-6. Si es efectivo, abrir la calculadora; si es QR, ingresar referencia; si es mixto, repartir.
-7. Confirmar. La app guarda la venta, los pagos, la caja, el stock y la auditoría en una transacción.
-8. Mostrar confirmación breve y limpiar el carrito.
-9. Si la app se cerró antes de confirmar, ofrecer recuperar el borrador.
+2. Buscar producto o tocar una tarjeta del catálogo.
+3. Si el producto no existe, tocar `+`, escribir nombre y precio; se guarda en el catálogo y entra al carrito.
+4. Ajustar cantidad en el carrito si hace falta.
+5. Tocar `Cobrar`.
+6. Elegir método.
+7. Si es efectivo, abrir la calculadora; si es QR, mostrar la imagen cargada e ingresar la referencia; si es mixto, repartir.
+8. Confirmar. La app guarda la venta, los pagos, la caja y la auditoría en una transacción.
+9. Mostrar confirmación breve con folio, total, método y cambio; limpiar el carrito.
+10. Si la app se cerró antes de confirmar, ofrecer recuperar el borrador.
 
 ### 6.5 Calculadora de cambio
 
@@ -351,13 +355,14 @@ El botón de cobrar es fijo en la parte inferior de la pantalla de venta, respet
 
 ### 6.6 Pago QR y mixto
 
+- Imagen del QR del negocio cargada desde la galería en Ajustes; se muestra grande al cobrar por QR.
+- La imagen se reduce a máximo 1200 px de lado y se guarda como JPEG de calidad 0.88.
 - Referencia obligatoria si hay QR.
 - Campo con teclado alfanumérico o numérico según el caso.
-- Botón de cámara para comprobante.
-- Foto comprimida a WebP, máximo 1024 px de lado, calidad ~0.65.
 - En mixto, al editar efectivo se completa el resto en QR y viceversa.
 - Indicador `Asignado / Falta` siempre visible.
 - No permitir guardar si la suma no coincide.
+- La foto del comprobante de pago queda para una fase posterior.
 
 ### 6.7 Conteo de cierre
 
@@ -896,15 +901,21 @@ Implementado en `apps/web`:
 - Esquema Dexie v2 con 20 tablas.
 - `MoneyKeypad`, `ChangeCalculator`, `PaymentSheet`.
 - Calculadora rápida con historial local.
-- 53 pruebas unitarias y de base local con Vitest y `fake-indexeddb`.
+- Navegación real: Caja en la barra superior; Vender / Cobrar / Clientes / Más abajo.
+- Apertura de caja con efectivo inicial y totales esperados desde el libro de caja.
+- Catálogo persistente con producto rápido y búsqueda normalizada.
+- Venta transaccional con folio, pagos, movimientos de caja y auditoría.
+- Imagen del QR de cobro en Ajustes, mostrada al cobrar por QR.
+- Historial unificado de ventas, caja y cuentas.
+- 76 pruebas unitarias y de base local con Vitest y `fake-indexeddb`.
 
 Todavía no implementado:
 
-- Venta transaccional en Dexie.
-- Sesión de caja y cierre.
-- Catálogo persistente.
+- Cierre y arqueo de caja con conteo físico.
 - Cuentas de clientes.
-- Respaldo y restauración.
+- Cobro real de servicios y remesas.
+- Respaldo y restauración desde la app.
+- Inicio de sesión y PIN.
 
 ### 12.2 Estructura
 
@@ -955,14 +966,14 @@ sistema-mariel/
 
 ## 13. Plan de implementación
 
-### Fase 0 — Base
+### Fase 0 — Base (completada)
 
 - Scaffold React/Vite/TypeScript/Tailwind/PWA.
 - Tokens visuales, shell móvil, navegación inferior, safe areas.
 - Dexie v1, migraciones, seed de denominaciones y settings.
 - Vitest configurado.
 
-### Fase 1 — Cobro rápido
+### Fase 1 — Cobro rápido (completada)
 
 - `MoneyKeypad`.
 - `ChangeCalculator`.
@@ -970,16 +981,17 @@ sistema-mariel/
 - Validaciones y pruebas unitarias.
 - Demo navegable con carrito de prueba.
 
-### Fase 2 — Venta y caja mínima
+### Fase 2 — Venta y caja mínima (implementada salvo borrador persistente)
 
 - Apertura de sesión.
-- Catálogo simple y carrito real.
+- Catálogo simple, producto rápido y carrito real.
 - Servicio de venta transaccional.
-- Pagos, movimientos de caja, stock y auditoría.
-- Folio secuencial e idempotencia.
-- Confirmación y borrador persistente.
+- Pagos, movimientos de caja y auditoría.
+- Folio secuencial.
+- Confirmación de la venta.
+- Pendiente: idempotencia de reintentos y borrador persistente del carrito.
 
-### Fase 3 — Cierre y reportes
+### Fase 3 — Cierre y reportes (siguiente)
 
 - Gastos, retiros y remesas.
 - Conteo por denominaciones.
@@ -1112,12 +1124,6 @@ Estas no bloquean el inicio, pero deben resolverse antes de la fase indicada:
 - Nombre y datos que aparecerán en el resumen compartido (fase 3).
 - Email definitivo de la cuenta de respaldo y política de recuperación (fase 6).
 - Momento para desactivar el registro público de Supabase (fase 6).
-- **Navegación definitiva de la barra inferior (fase 2).** Hoy el shell usa
-  `Vender / Clientes / Caja / Más`. La propuesta inicial hablaba de
-  `Cobrar / Cuentas / Servicios / Caja`. Las dos opciones son válidas: la
-  primera prioriza la venta y deja servicios dentro de «Vender»; la segunda le
-  da a servicios una entrada propia. No se cambia hasta que la operadora elija,
-  porque afecta el orden de las pantallas y los accesos de una mano.
 
 ---
 
@@ -1150,3 +1156,4 @@ Estas no bloquean el inicio, pero deben resolverse antes de la fase indicada:
 | 1.0 | 2026-11-16 | Documento inicial; arquitectura móvil local-first, sin tickets, con respaldo cifrado |
 | 1.1 | 2026-11-16 | Infraestructura Supabase de respaldo creada y verificada; integración pendiente |
 | 1.2 | 2026-11-17 | Scaffold PWA, esquema Dexie v2, componentes de cobro y calculadora con historial |
+| 1.3 | 2026-11-17 | Navegación real, venta transaccional, apertura de caja, catálogo con producto rápido, QR de cobro e historial |

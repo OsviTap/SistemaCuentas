@@ -1,7 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Shell } from './Shell';
+import { MorePage } from './MorePage';
 import { PlaceholderPage } from './PlaceholderPage';
+import { CashPage } from '../features/cash/CashPage';
 import { SellPage } from '../features/checkout/SellPage';
+import { HistoryPage } from '../features/history/HistoryPage';
+import { CollectPage } from '../features/services/CollectPage';
+import { SettingsPage } from '../features/settings/SettingsPage';
 
 export function App() {
   return (
@@ -9,6 +14,8 @@ export function App() {
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<SellPage />} />
+
+          <Route path="cobrar" element={<CollectPage />} />
 
           <Route
             path="clientes"
@@ -21,27 +28,11 @@ export function App() {
             }
           />
 
-          <Route
-            path="caja"
-            element={
-              <PlaceholderPage
-                title="Caja"
-                phase="fases 2 y 3"
-                description="Apertura, movimientos, arqueo y cierre de la sesión."
-              />
-            }
-          />
+          <Route path="caja" element={<CashPage />} />
 
-          <Route
-            path="mas"
-            element={
-              <PlaceholderPage
-                title="Más"
-                phase="fases 6 y 7"
-                description="Catálogo, reportes, respaldo, auditoría y ajustes."
-              />
-            }
-          />
+          <Route path="mas" element={<MorePage />} />
+          <Route path="mas/historial" element={<HistoryPage />} />
+          <Route path="mas/ajustes" element={<SettingsPage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

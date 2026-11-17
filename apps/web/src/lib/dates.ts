@@ -21,3 +21,13 @@ export function formatTime(iso: string): string {
     timeZone: BOLIVIA_TIME_ZONE
   }).format(new Date(iso));
 }
+
+/** Año local de Bolivia, usado para folios legibles. */
+export function boliviaYear(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    timeZone: BOLIVIA_TIME_ZONE
+  }).formatToParts(date);
+
+  return parts.find((part) => part.type === 'year')?.value ?? String(date.getUTCFullYear());
+}

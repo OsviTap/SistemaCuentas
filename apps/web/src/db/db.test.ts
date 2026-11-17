@@ -74,6 +74,8 @@ describe('esquema de la base local', () => {
 
     expect(await database.settings.count()).toBe(Object.keys(DEFAULT_SETTINGS).length);
     expect(await database.counters.count()).toBe(2);
+    expect(await database.users.count()).toBe(1);
+    expect(await readSetting('deviceId', database)).toMatch(/^[0-9A-Z]{26}$/);
     expect(await readSetting('allowNegativeBalance', database)).toBe(false);
     expect(await readSetting('currency', database)).toBe('BOB');
     expect((await database.counters.get('saleFolio'))?.value).toBe(0);

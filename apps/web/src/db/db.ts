@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { nowIso } from '../lib/dates';
+import { newId } from '../lib/ids';
 
 /**
  * Base operativa local. Dexie/IndexedDB es la fuente de verdad del negocio.
@@ -12,6 +13,12 @@ export type IsoDateTime = string;
 export type Flag = 0 | 1;
 
 export const SCHEMA_VERSION = 2;
+
+/**
+ * Operadora local única. La app todavía no tiene inicio de sesión; este
+ * identificador se usa para auditoría y luego se reemplaza por el usuario real.
+ */
+export const LOCAL_OWNER_ID = 'local-owner';
 
 // ---------------------------------------------------------------------------
 // Configuración y usuarios
@@ -27,6 +34,10 @@ export type AppSettings = {
   backupRetentionQuick: number;
   backupRetentionFull: number;
   qrOwnerName: string;
+  /** Identificador local del teléfono, para auditoría. */
+  deviceId: string;
+  /** Adjunto de la imagen del QR de cobro; vacío si no se cargó. */
+  qrImageAttachmentId: string;
 };
 
 export type SettingKey = keyof AppSettings;
@@ -47,7 +58,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pinMaxAttempts: 5,
   backupRetentionQuick: 14,
   backupRetentionFull: 7,
-  qrOwnerName: ''
+  qrOwnerName: '',
+  deviceId: '',
+  qrImageAttachmentId: ''
 };
 
 export type UserRole = 'owner' | 'supervisor';
@@ -356,7 +369,11 @@ export type AuditLog = {
 // Adjuntos, borradores y estado del respaldo
 // ---------------------------------------------------------------------------
 
-export type AttachmentOwnerType = 'sale_payment' | 'expense' | 'client_movement';
+export type AttachmentOwnerType =
+  | 'sale_payment'
+  | 'expense'
+  | 'client_movement'
+  | 'business_qr';
 
 export type Attachment = {
   id: Id;
@@ -494,6 +511,7 @@ export async function initializeDatabase(database: MarielDB = db): Promise<void>
     'rw',
     database.settings,
     database.counters,
+    database.users,
     async () => {
       for (const key of Object.keys(DEFAULT_SETTINGS) as SettingKey[]) {
         const existing = await database.settings.get(key);
@@ -506,14 +524,47 @@ export async function initializeDatabase(database: MarielDB = db): Promise<void>
         }
       }
 
+      const device = await database.settings.get('deviceId');
+      if (!device || device.value === '') {
+        await database.settings.put({
+          key: 'deviceId',
+          value: newId(),
+          updatedAt: timestamp
+        });
+      }
+
       for (const name of COUNTER_NAMES) {
         const existing = await database.counters.get(name);
         if (!existing) {
           await database.counters.put({ name, value: 0 });
         }
       }
+
+      if ((await database.users.count()) === 0) {
+        await database.users.put({
+          id: LOCAL_OWNER_ID,
+          name: 'Dueña',
+          role: 'owner',
+          // Sin PIN configurado todavía. No hay inicio de sesión en esta fase.
+          pinHash: '',
+          pinSalt: '',
+          pinIterations: 0,
+          active: 1,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        });
+      }
     }
   );
+}
+
+/** Escribe una configuración con la fecha actual. */
+export async function writeSetting<K extends SettingKey>(
+  key: K,
+  value: AppSettings[K],
+  database: MarielDB = db
+): Promise<void> {
+  await database.settings.put({ key, value, updatedAt: nowIso() });
 }
 
 /** Lee una configuración con su valor por defecto. */

@@ -295,3 +295,114 @@ Formato: cada decisión es un ADR corto. No se reescribe la historia; si una dec
 - Los cálculos usan coma flotante de JavaScript redondeada para mostrar; no son aptos para persistir montos.
 - Si la operadora no la usa, la pestaña permanece discreta y no interfiere con el flujo de venta.
 
+---
+
+## ADR-019 — Navegación con Caja arriba y cuatro destinos abajo
+
+**Fecha:** 2026-11-17  
+**Estado:** aceptada
+
+**Contexto:** la operadora necesita abrir y consultar la caja en cualquier momento, pero también vender, cobrar servicios y entrar a las cuentas de clientes con una sola mano. La propuesta anterior mezclaba Caja en la barra inferior y dejaba servicios escondido dentro de Vender.
+
+**Decisión:**
+- **Caja** vive en la barra superior, con un punto que indica si la sesión está abierta o cerrada.
+- La barra inferior tiene cuatro destinos: **Vender / Cobrar / Clientes / Más**.
+- **Vender** es la tienda de productos.
+- **Cobrar** es para servicios externos (luz, agua, recargas y otros).
+- **Clientes** es para cuentas y saldos.
+- **Más** reúne historial, ajustes, respaldo y auditoría.
+
+**Consecuencias:**
+- La caja queda siempre a un toque sin ocupar un lugar en la barra inferior.
+- Servicios tiene entrada propia y no se confunde con la venta de productos.
+- El historial y los ajustes no compiten con las acciones diarias.
+- Cuando se implemente el cobro real de servicios, la pantalla ya tiene su lugar.
+
+---
+
+## ADR-020 — Venta guardada en una sola transacción Dexie
+
+**Fecha:** 2026-11-17  
+**Estado:** aceptada
+
+**Contexto:** una venta toca varias tablas (venta, líneas, pagos, caja, contador de folio y auditoría). Si una parte falla, el dinero y la caja quedarían inconsistentes.
+
+**Decisión:**
+- `createSale()` escribe venta, líneas, pagos, movimientos de caja, contador de folio y auditoría dentro de una única transacción de Dexie.
+- La suma de los pagos debe ser exactamente el total; si no coincide, no se guarda nada.
+- El efectivo registra en caja el monto aplicado, no el monto recibido; el vuelto queda en el pago.
+- El folio es `YYYY-NNNN`, con año local de Bolivia y contador propio.
+- Una venta exige una sesión de caja abierta.
+- Cada movimiento de caja enlaza la venta y el pago que lo originó.
+- La venta y su auditoría son inmutables; una corrección futura será un reverso, no un borrado.
+
+**Consecuencias:**
+- Un fallo a mitad de la venta no deja registros huérfanos.
+- La caja se puede reconstruir desde su libro de movimientos.
+- El contador de folio avanza solo cuando la venta se confirma.
+- La idempotencia de reintentos y el borrador persistente quedan pendientes para la fase de cierre.
+
+---
+
+## ADR-021 — Producto rápido persistente y agregado al carrito
+
+**Fecha:** 2026-11-17  
+**Estado:** aceptada
+
+**Contexto:** en el mostrador aparecen productos que todavía no están en el catálogo. Obligar a salir de la venta, crear el producto y volver agrega pasos y errores.
+
+**Decisión:**
+- El botón `+` junto al buscador abre una hoja con nombre y precio.
+- Al guardar, el producto se crea en el catálogo y se agrega de inmediato al carrito actual.
+- El nombre se normaliza para búsqueda y no se permite duplicar un producto activo.
+- El precio debe ser un entero positivo en centavos.
+
+**Consecuencias:**
+- La venta no se interrumpe y el producto queda disponible para la próxima vez.
+- El catálogo puede crecer desde el uso real, sin una pantalla de administración previa.
+- Si el nombre o el precio son inválidos, no se crea nada y se muestra el motivo.
+
+---
+
+## ADR-022 — Imagen del QR de cobro guardada en el teléfono
+
+**Fecha:** 2026-11-17  
+**Estado:** aceptada
+
+**Contexto:** la operadora ya tiene el QR de su negocio como imagen. Al cobrar por QR, el cliente necesita verlo grande y nítido; escribir un alias o un número no siempre alcanza.
+
+**Decisión:**
+- La imagen se carga desde la galería en **Más → Ajustes → QR de cobro**.
+- Se aceptan PNG, JPG y WebP de hasta 5 MB.
+- Antes de guardar se reduce a máximo 1200 px de lado y se convierte a JPEG de calidad 0.88, con fondo blanco.
+- Se guarda como adjunto local con identificador fijo `business-qr`; no se sube a ningún servicio.
+- Al elegir QR o mixto en el cobro, la imagen se muestra y se puede ampliar.
+- Reemplazarla o quitarla es configuración, no un registro de ventas; la imagen entrará en el respaldo cifrado.
+
+**Consecuencias:**
+- El cobro por QR no depende de otra app ni de volver a buscar la imagen.
+- El respaldo crecerá unos kilobytes por la imagen comprimida.
+- Si no hay imagen cargada, el cobro por QR sigue disponible y se muestra un aviso para cargarla.
+
+---
+
+## ADR-023 — Historial unificado y de solo lectura
+
+**Fecha:** 2026-11-17  
+**Estado:** aceptada
+
+**Contexto:** las ventas, los movimientos de caja y los movimientos de cuentas estaban en lugares distintos. La operadora necesita revisar qué pasó sin navegar por varias pantallas.
+
+**Decisión:**
+- El historial vive en **Más → Historial**.
+- Tiene tres pestañas: **Ventas**, **Caja** y **Cuentas**.
+- Muestra primero lo más reciente.
+- Ventas muestra folio, total, método de pago y cantidad de artículos.
+- Caja muestra tipo, medio, monto y fecha.
+- Cuentas muestra cliente, tipo de movimiento, monto y fecha.
+- Es de solo lectura: no se edita ni se borra desde ahí.
+
+**Consecuencias:**
+- Un solo lugar para revisar la operación diaria.
+- Las correcciones se harán con reversos y auditoría, no desde el historial.
+- Los reportes X/Z y el compartir por WhatsApp quedan para la fase de cierre.

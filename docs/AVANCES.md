@@ -9,20 +9,21 @@ No reemplaza al documento maestro ni al registro de decisiones.
 |---|---|
 | 0. Documentación y arquitectura | Completada |
 | 1. Scaffold y shell móvil | Completada |
-| 2. Cobro rápido (keypad, cambio, pagos) | Componentes y validaciones listos; falta guardar la venta |
-| 3. Venta y caja mínima | Pendiente |
+| 2. Cobro rápido (keypad, cambio, pagos) | Completada |
+| 3. Venta y caja mínima | Venta transaccional y apertura de caja listas; cierre pendiente |
 | 4. Cierre y reportes | Pendiente |
 | 5. Cuentas de clientes | Pendiente |
-| 6. Servicios y remesas | Pendiente |
+| 6. Servicios y remesas | Pendiente; la pestaña Cobrar muestra un aviso de próxima fase |
 | 7. Respaldo cifrado | Infraestructura remota creada; integración pendiente |
 | 8. Auditoría y endurecimiento | Pendiente |
 | 9. Pruebas E2E e instalación | Pendiente |
 
 ## Próximo paso
 
-1. Revisar y aprobar el esquema Dexie v2 (`apps/web/src/db/db.ts`).
-2. Pasar a la fase 2: sesión de caja, catálogo persistente y venta transaccional.
-3. Integrar el cobro ya construido con Dexie en una sola transacción.
+1. Cierre y arqueo de caja con conteo físico, diferencias y resumen compartible.
+2. Cuentas de clientes: alta, depósitos, retiros y pago de venta con saldo.
+3. Servicios y remesas.
+4. Respaldo desde la app y cuenta de la dueña.
 
 Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 
@@ -217,6 +218,77 @@ Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 - Apertura de caja y catálogo persistente.
 - Resolver la navegación definitiva (ver decisión pendiente en `PROYECTO.md`).
 - La pantalla de venta actual **no guarda** la venta.
+
+---
+
+## 2026-11-17 — Sesión 2: venta real, caja y QR de cobro
+
+**Objetivo:** convertir el mostrador de demostración en una venta real guardada en Dexie, con apertura de caja, catálogo persistente, imagen del QR de cobro e historial de movimientos.
+
+**Hecho:**
+- Navegación definitiva: **Caja** en la barra superior; **Vender / Cobrar / Clientes / Más** en la barra inferior.
+- **Cobrar** queda como entrada de servicios con un aviso honesto de próxima fase.
+- Apertura de sesión de caja con efectivo inicial; una sola sesión abierta a la vez.
+- Totales de la sesión calculados desde el libro de caja: efectivo esperado, QR esperado, ventas.
+- Catálogo persistente con búsqueda sin acentos ni mayúsculas.
+- Botón `+` de producto rápido: nombre y precio, guarda en el catálogo y agrega al carrito.
+- Venta transaccional en una sola transacción Dexie: venta, líneas, pagos, movimientos de caja, folio y auditoría.
+- Folio `YYYY-NNNN` con año local de Bolivia.
+- Pagos en efectivo, QR y mixto; validación estricta de que la suma sea el total.
+- La caja suma el monto aplicado; el efectivo recibido y el cambio quedan en el pago.
+- Aviso si una referencia QR se repitió en las últimas 24 horas.
+- Imagen del QR de cobro en **Más → Ajustes → QR de cobro**: carga desde galería, reducción a 1200 px, JPEG 0.88, reemplazo y eliminación.
+- La imagen se muestra al cobrar por QR y en el modo mixto, con opción de ampliarla.
+- Historial en **Más → Historial** con pestañas **Ventas / Caja / Cuentas**, de solo lectura.
+- Pantalla de caja con últimos movimientos y resumen de la sesión.
+- Confirmación de venta con folio, total, métodos, referencia QR y cambio.
+- Bloqueo del cobro si la caja está cerrada, con acceso directo para abrirla.
+
+**Archivos principales:**
+- `apps/web/src/db/db.ts` — claves nuevas de configuración, dueña local y adjunto de QR.
+- `apps/web/src/domain/sales.ts`, `cash.ts`, `catalog.ts`, `settings.ts` — reglas de negocio.
+- `apps/web/src/features/checkout/` — venta real, hoja de cobro y tarjeta del QR.
+- `apps/web/src/features/catalog/QuickProductSheet.tsx` — producto rápido.
+- `apps/web/src/features/cash/CashPage.tsx` — apertura y resumen de caja.
+- `apps/web/src/features/history/` — historial y consultas.
+- `apps/web/src/features/settings/` — ajustes del QR.
+- `apps/web/src/app/Shell.tsx`, `App.tsx`, `MorePage.tsx` — navegación y rutas.
+
+**Decisiones nuevas (ADR):**
+- ADR-019 — Navegación con Caja arriba y cuatro destinos abajo.
+- ADR-020 — Venta guardada en una sola transacción Dexie.
+- ADR-021 — Producto rápido persistente y agregado al carrito.
+- ADR-022 — Imagen del QR de cobro guardada en el teléfono.
+- ADR-023 — Historial unificado y de solo lectura.
+
+**Pruebas ejecutadas:**
+- `npm run typecheck`: sin errores.
+- `npm test`: 76 pruebas en 10 archivos, todas pasan.
+- `npm run build`: build de producción con PWA.
+- Verificación en navegador:
+  - caja abierta con Bs 100;
+  - producto rápido «Pan de queso» a Bs 3;
+  - venta en efectivo `2026-0001` con cambio de Bs 2;
+  - venta por QR `2026-0002` con imagen visible y referencia;
+  - venta mixta `2026-0004` (Bs 1 efectivo + Bs 2 QR);
+  - aviso de referencia QR repetida;
+  - pestañas del historial;
+  - eliminación del QR desde Ajustes;
+  - calculadora `2 + 2 = 4`.
+- Sin errores ni avisos en consola.
+- La base de prueba se borró y la app quedó en estado limpio.
+
+**Problemas encontrados:**
+- Dexie no acepta más de siete tablas en la forma variádica de `transaction`; se pasó un arreglo de tablas.
+- El contenedor raíz necesitó una comprobación explícita para TypeScript.
+- Los avisos de deprecación de `esbuild` en Vite 8 siguen siendo informativos.
+
+**Pendiente / siguiente:**
+- Cierre y arqueo de caja con conteo físico, diferencias y resumen compartible.
+- Borrador persistente del carrito e idempotencia de reintentos.
+- Cuentas de clientes y pago con saldo.
+- Cobro real de servicios y remesas.
+- Respaldo cifrado desde la app e inicio de sesión/PIN.
 
 ---
 

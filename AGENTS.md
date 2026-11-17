@@ -136,11 +136,17 @@ docs/
 - La integración de respaldo desde la app y la cuenta de la dueña están pendientes.
 - Scaffold de la PWA creado en `apps/web` con React 19, Vite 8, Tailwind 4, Dexie y `vite-plugin-pwa`.
 - Esquema Dexie v2 en `apps/web/src/db/db.ts`: clientes, cuentas, ventas, pagos, caja, catálogo, auditoría, respaldo e historial de calculadora.
-- Bloque de cobro móvil implementado: `MoneyKeypad`, `ChangeCalculator`, `PaymentSheet` (efectivo, QR y mixto) y una pantalla de venta de demostración.
+- Bloque de cobro móvil implementado: `MoneyKeypad`, `ChangeCalculator`, `PaymentSheet` (efectivo, QR y mixto).
 - Calculadora rápida con historial local, abierta desde una pestaña lateral en todas las pantallas.
-- Pruebas: `npm test` con 53 casos; `npm run build` compila la PWA.
-- **La venta todavía no se guarda en Dexie.** La pantalla de venta es una demostración de UI.
-- Próximo hito: confirmar el esquema y pasar a las pantallas reales de la fase 2 (sesión de caja, catálogo y venta transaccional).
+- Navegación real: **Caja** en la barra superior; **Vender / Cobrar / Clientes / Más** en la barra inferior. **Cobrar** es para servicios y hoy muestra un aviso honesto de próxima fase.
+- Apertura de sesión de caja con efectivo inicial y totales esperados de efectivo y QR desde el libro de caja.
+- Catálogo persistente con búsqueda y botón de **producto rápido** (nombre y precio) que guarda en el catálogo y agrega al carrito.
+- Venta real guardada en **una sola transacción Dexie**: venta, líneas, pagos, movimientos de caja, folio `YYYY-NNNN` y auditoría. Efectivo, QR y mixto; la suma de pagos debe ser exactamente el total.
+- Imagen del **QR de cobro** cargada desde la galería en **Más → Ajustes → QR de cobro**, guardada localmente y mostrada al cobrar por QR. Aviso de referencia QR repetida en las últimas 24 horas.
+- Historial en **Más → Historial** con pestañas **Ventas / Caja / Cuentas**.
+- Pruebas: `npm test` con 76 casos; `npm run typecheck` limpio; `npm run build` compila la PWA.
+- Pendiente: cierre y arqueo de caja, cuentas de clientes, cobro real de servicios, respaldo desde la app e inicio de sesión/PIN.
+- Próximo hito: cierre de caja con conteo físico, diferencias y resumen compartible.
 - No afirmar que una función existe si no está implementada y probada.
 
 ## 10. Protocolo para trabajar sin alucinar

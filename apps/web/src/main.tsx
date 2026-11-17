@@ -4,18 +4,28 @@ import { App } from './app/App';
 import { initializeDatabase } from './db/db';
 import './index.css';
 
-initializeDatabase().catch((error: unknown) => {
-  console.error('No se pudo inicializar la base local', error);
-});
-
-const container = document.getElementById('root');
-
-if (!container) {
-  throw new Error('No se encontró el contenedor #root');
+function getContainer(): HTMLElement {
+  const element = document.getElementById('root');
+  if (!element) {
+    throw new Error('No se encontró el contenedor #root');
+  }
+  return element;
 }
 
-createRoot(container).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
+const container = getContainer();
+
+async function bootstrap() {
+  try {
+    await initializeDatabase();
+  } catch (error: unknown) {
+    console.error('No se pudo inicializar la base local', error);
+  }
+
+  createRoot(container).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  );
+}
+
+void bootstrap();
