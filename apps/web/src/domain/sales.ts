@@ -2,6 +2,8 @@ import {
   LOCAL_OWNER_ID,
   db,
   readSetting,
+  type AccountMovement,
+  type CashMovement,
   type CashSession,
   type Cents,
   type MarielDB,
@@ -34,6 +36,7 @@ export type SaleItemInput = {
 export type CreateSaleInput = {
   items: SaleItemInput[];
   payments: SalePaymentInput[];
+  clientId?: string;
   notes?: string;
 };
 
@@ -114,6 +117,18 @@ function normalizePayments(
       continue;
     }
 
+    if (payment.method === 'account') {
+      if (!payment.clientId) {
+        throw new SaleError('Selecciona un cliente para el pago con saldo.');
+      }
+      normalized.push({
+        method: 'account',
+        amountCents: payment.amountCents,
+        clientId: payment.clientId
+      });
+      continue;
+    }
+
     const referenceError = validateQrReference(payment.qrReference);
     if (referenceError) throw new SaleError(referenceError);
 
@@ -163,12 +178,17 @@ export async function createSale(
   }));
 
   const productIds = itemInputs.map((item) => item.productId);
-  const deviceId = await readSetting('deviceId', database);
+  const [deviceId, allowNegative] = await Promise.all([
+    readSetting('deviceId', database),
+    readSetting('allowNegativeBalance', database)
+  ]);
 
   return database.transaction(
     'rw',
     [
       database.products,
+      database.clients,
+      database.accountMovements,
       database.sales,
       database.saleItems,
       database.salePayments,
@@ -199,10 +219,15 @@ export async function createSale(
       const saleId = newId();
       const folio = `${boliviaYear()}-${String(next).padStart(4, '0')}`;
 
+      const saleClientId =
+        input.clientId ??
+        payments.find((payment) => payment.method === 'account')?.clientId;
+
       const sale: Sale = {
         id: saleId,
         folio,
         sessionId: session.id,
+        clientId: saleClientId,
         subtotalCents: totalCents,
         discountCents: 0,
         totalCents,
@@ -234,6 +259,7 @@ export async function createSale(
           payment.method === 'cash' ? payment.cashReceivedCents : undefined,
         changeCents: payment.method === 'cash' ? payment.changeCents : undefined,
         qrReference: payment.method === 'qr' ? payment.qrReference : undefined,
+        clientId: payment.method === 'account' ? payment.clientId : undefined,
         createdAt
       }));
 
@@ -241,12 +267,51 @@ export async function createSale(
       await database.saleItems.bulkAdd(itemRecords);
       await database.salePayments.bulkAdd(paymentRecords);
 
-      await database.cashMovements.bulkAdd(
-        paymentRecords.map((payment) => ({
+      const cashMovementsToAdd: CashMovement[] = [];
+      const accountMovementsToAdd: AccountMovement[] = [];
+
+      for (const payment of paymentRecords) {
+        if (payment.method === 'account') {
+          const client = payment.clientId
+            ? await database.clients.get(payment.clientId)
+            : undefined;
+          if (!client || client.active !== 1) {
+            throw new SaleError('El cliente seleccionado no existe o está inactivo.');
+          }
+          const nextBalance = client.balanceCents - payment.amountCents;
+          if (!allowNegative && nextBalance < 0) {
+            throw new SaleError(`El saldo de ${client.name} no alcanza para cubrir el pago.`);
+          }
+
+          await database.clients.update(client.id, {
+            balanceCents: nextBalance,
+            updatedAt: createdAt
+          });
+
+          accountMovementsToAdd.push({
+            id: newId(),
+            clientId: client.id,
+            sessionId: session.id,
+            saleId,
+            type: 'sale_payment',
+            amountCents: -payment.amountCents,
+            cashCents: 0,
+            qrCents: 0,
+            balanceAfterCents: nextBalance,
+            method: 'internal',
+            description: `Venta ${folio}`,
+            idempotencyKey: `${saleId}:${payment.id}`,
+            createdBy: LOCAL_OWNER_ID,
+            createdAt
+          });
+          continue;
+        }
+
+        cashMovementsToAdd.push({
           id: newId(),
           sessionId: session.id,
-          medium: payment.method === 'cash' ? ('cash' as const) : ('qr' as const),
-          type: 'sale' as const,
+          medium: payment.method === 'cash' ? 'cash' : 'qr',
+          type: 'sale',
           amountCents: payment.amountCents,
           saleId,
           salePaymentId: payment.id,
@@ -254,8 +319,15 @@ export async function createSale(
           idempotencyKey: `${saleId}:${payment.id}`,
           createdBy: LOCAL_OWNER_ID,
           createdAt
-        }))
-      );
+        });
+      }
+
+      if (cashMovementsToAdd.length > 0) {
+        await database.cashMovements.bulkAdd(cashMovementsToAdd);
+      }
+      if (accountMovementsToAdd.length > 0) {
+        await database.accountMovements.bulkAdd(accountMovementsToAdd);
+      }
 
       await database.auditLogs.add({
         id: newId(),
@@ -300,4 +372,141 @@ export async function countRecentQrReferences(
   const rows = await database.salePayments.where('qrReference').equals(normalized).toArray();
 
   return rows.filter((row) => row.createdAt >= since).length;
+}
+
+/**
+ * Anula una venta de la sesión de caja abierta en una sola transacción:
+ * marca la venta como `voided`, revierte caja o saldo de cliente y registra auditoría.
+ */
+export async function voidSale(
+  input: { saleId: string; reason: string },
+  database: MarielDB = db
+): Promise<Sale> {
+  const reason = input.reason.trim();
+  if (reason.length < 3) {
+    throw new SaleError('Escribe el motivo de la anulación (mínimo 3 caracteres).');
+  }
+
+  const deviceId = (await readSetting('deviceId', database)) || 'local';
+
+  return database.transaction(
+    'rw',
+    [
+      database.sales,
+      database.salePayments,
+      database.cashSessions,
+      database.cashMovements,
+      database.clients,
+      database.accountMovements,
+      database.auditLogs
+    ],
+    async () => {
+      const sale = await database.sales.get(input.saleId);
+      if (!sale) {
+        throw new SaleError('La venta no existe.');
+      }
+      if (sale.status === 'voided') {
+        throw new SaleError('Esta venta ya fue anulada.');
+      }
+
+      const openSession = await database.cashSessions
+        .where('status')
+        .equals('open')
+        .first();
+      if (!openSession || openSession.id !== sale.sessionId) {
+        throw new SaleError(
+          'Solo se pueden anular ventas de la sesión de caja abierta.'
+        );
+      }
+
+      const payments = await database.salePayments
+        .where('saleId')
+        .equals(sale.id)
+        .toArray();
+
+      const voidedAt = nowIso();
+      const updatedSale: Sale = {
+        ...sale,
+        status: 'voided',
+        voidedAt,
+        voidedBy: LOCAL_OWNER_ID,
+        voidReason: reason
+      };
+
+      await database.sales.put(updatedSale);
+
+      const cashReversals: CashMovement[] = [];
+      const accountReversals: AccountMovement[] = [];
+
+      for (const payment of payments) {
+        if (payment.method === 'account' && payment.clientId) {
+          const client = await database.clients.get(payment.clientId);
+          if (client) {
+            const nextBalance = client.balanceCents + payment.amountCents;
+            await database.clients.update(client.id, {
+              balanceCents: nextBalance,
+              updatedAt: voidedAt
+            });
+            accountReversals.push({
+              id: newId(),
+              clientId: client.id,
+              sessionId: openSession.id,
+              saleId: sale.id,
+              type: 'reversal',
+              amountCents: payment.amountCents,
+              cashCents: 0,
+              qrCents: 0,
+              balanceAfterCents: nextBalance,
+              method: 'internal',
+              description: `Anulación ${sale.folio} · ${reason}`,
+              idempotencyKey: `void:${sale.id}:${payment.id}`,
+              createdBy: LOCAL_OWNER_ID,
+              createdAt: voidedAt,
+              reason
+            });
+          }
+          continue;
+        }
+
+        if (payment.method === 'cash' || payment.method === 'qr') {
+          cashReversals.push({
+            id: newId(),
+            sessionId: openSession.id,
+            medium: payment.method,
+            type: 'reversal',
+            amountCents: -payment.amountCents,
+            saleId: sale.id,
+            salePaymentId: payment.id,
+            description: `Anulación ${sale.folio} · ${reason}`,
+            idempotencyKey: `void:${sale.id}:${payment.id}`,
+            createdBy: LOCAL_OWNER_ID,
+            createdAt: voidedAt
+          });
+        }
+      }
+
+      if (cashReversals.length > 0) {
+        await database.cashMovements.bulkAdd(cashReversals);
+      }
+      if (accountReversals.length > 0) {
+        await database.accountMovements.bulkAdd(accountReversals);
+      }
+
+      await database.auditLogs.add({
+        id: newId(),
+        actorId: LOCAL_OWNER_ID,
+        action: 'sale.void',
+        entity: 'sale',
+        entityId: sale.id,
+        sessionId: openSession.id,
+        before: { status: 'completed', totalCents: sale.totalCents },
+        after: { status: 'voided', voidReason: reason },
+        reason,
+        deviceId,
+        createdAt: voidedAt
+      });
+
+      return updatedSale;
+    }
+  );
 }

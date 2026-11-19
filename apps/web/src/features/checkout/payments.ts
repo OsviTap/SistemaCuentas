@@ -3,7 +3,7 @@
  * Regla central: la suma de los pagos debe ser exactamente el total.
  */
 
-export type PaymentMethod = 'cash' | 'qr' | 'mixed';
+export type PaymentMethod = 'cash' | 'qr' | 'mixed' | 'account';
 
 export type CashPaymentInput = {
   method: 'cash';
@@ -18,7 +18,13 @@ export type QrPaymentInput = {
   qrReference: string;
 };
 
-export type SalePaymentInput = CashPaymentInput | QrPaymentInput;
+export type AccountPaymentInput = {
+  method: 'account';
+  amountCents: number;
+  clientId: string;
+};
+
+export type SalePaymentInput = CashPaymentInput | QrPaymentInput | AccountPaymentInput;
 
 export type PaymentDraft = {
   method: PaymentMethod;
@@ -29,6 +35,9 @@ export type PaymentDraft = {
   /** Parte aplicada por QR en modo mixto. */
   qrCents: number;
   qrReference: string;
+  /** Cliente seleccionado cuando method = 'account'. */
+  clientId?: string;
+  clientBalanceCents?: number;
 };
 
 export type PaymentValidation =
@@ -93,6 +102,29 @@ export function buildPayments(
           method: 'qr',
           amountCents: totalCents,
           qrReference: normalizeQrReference(draft.qrReference)
+        }
+      ]
+    };
+  }
+
+  if (draft.method === 'account') {
+    if (!draft.clientId) {
+      return { ok: false, error: 'Selecciona un cliente para cobrar con su saldo.' };
+    }
+    if (
+      typeof draft.clientBalanceCents === 'number' &&
+      draft.clientBalanceCents < totalCents
+    ) {
+      return { ok: false, error: 'El saldo del cliente no alcanza para cubrir el total.' };
+    }
+    return {
+      ok: true,
+      changeCents: 0,
+      payments: [
+        {
+          method: 'account',
+          amountCents: totalCents,
+          clientId: draft.clientId
         }
       ]
     };

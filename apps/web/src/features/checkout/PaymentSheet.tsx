@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { formatBs } from '../../lib/money';
 import { MoneyKeypad } from '../../components/MoneyKeypad';
+import { listActiveClients } from '../../domain/clients';
 import { countRecentQrReferences } from '../../domain/sales';
 import { BusinessQrCard } from './BusinessQrCard';
 import { ChangeCalculator } from './ChangeCalculator';
@@ -24,7 +26,8 @@ type PaymentSheetProps = {
 const METHODS: { id: PaymentMethod; label: string }[] = [
   { id: 'cash', label: 'Efectivo' },
   { id: 'qr', label: 'QR' },
-  { id: 'mixed', label: 'Mixto' }
+  { id: 'mixed', label: 'Mixto' },
+  { id: 'account', label: 'Saldo' }
 ];
 
 type MixedField = 'cash' | 'qr';
@@ -36,9 +39,18 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
   const [qrCents, setQrCents] = useState(0);
   const [activeField, setActiveField] = useState<MixedField>('cash');
   const [qrReference, setQrReference] = useState('');
+  const [clientQuery, setClientQuery] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<string | undefined>(undefined);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const clients = useLiveQuery(
+    () => (method === 'account' ? listActiveClients(clientQuery) : Promise.resolve([])),
+    [method, clientQuery],
+    []
+  );
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -49,7 +61,11 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
   }, []);
 
   useEffect(() => {
-    if (method === 'cash' || qrReference.trim().length < MIN_QR_REFERENCE_LENGTH) {
+    if (
+      method === 'cash' ||
+      method === 'account' ||
+      qrReference.trim().length < MIN_QR_REFERENCE_LENGTH
+    ) {
       setDuplicateCount(0);
       return;
     }
@@ -68,7 +84,9 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
     cashReceivedCents: receivedCents,
     cashCents,
     qrCents,
-    qrReference
+    qrReference,
+    clientId: selectedClient?.id,
+    clientBalanceCents: selectedClient?.balanceCents
   };
 
   const validation = buildPayments(draft, totalCents);
@@ -126,7 +144,7 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-1 px-4 pb-3">
+        <div className="grid grid-cols-4 gap-1 px-4 pb-3">
           {METHODS.map((item) => {
             const active = method === item.id;
             return (
@@ -269,9 +287,86 @@ export function PaymentSheet({ totalCents, onCancel, onConfirm }: PaymentSheetPr
           </div>
         ) : null}
 
+        {method === 'account' ? (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-3xl bg-ink-900 px-5 py-4 text-white">
+              <p className="text-xs font-medium tracking-wide text-ink-300 uppercase">
+                Cobro con saldo de cliente
+              </p>
+              <p className="tabular mt-1 text-3xl font-bold">{formatBs(totalCents)}</p>
+              <p className="mt-1 text-xs text-ink-300">
+                No ingresa efectivo a caja; se descuenta de la cuenta del cliente.
+              </p>
+            </div>
+
+            <input
+              type="search"
+              value={clientQuery}
+              onChange={(event) => setClientQuery(event.target.value)}
+              placeholder="Buscar cliente por nombre o apodo…"
+              aria-label="Buscar cliente para cobrar"
+              className="h-12 w-full rounded-2xl border border-ink-200 bg-white px-4 text-base text-ink-900 placeholder:text-ink-400 focus:border-brand-600 focus:outline-none"
+            />
+
+            {clients.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-ink-300 bg-white/60 px-4 py-6 text-center text-sm text-ink-500">
+                No hay clientes que coincidan. Crea clientes en la pestaña Clientes.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {clients.map((client) => {
+                  const selected = client.id === selectedClientId;
+                  const enough = client.balanceCents >= totalCents;
+
+                  return (
+                    <li key={client.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClientId(client.id)}
+                        aria-pressed={selected}
+                        className={[
+                          'flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-colors',
+                          selected
+                            ? 'bg-brand-50 ring-2 ring-brand-600'
+                            : 'bg-white ring-1 ring-ink-200 active:bg-ink-50'
+                        ].join(' ')}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-ink-900">
+                            {client.name}
+                          </p>
+                          {client.alias ? (
+                            <p className="truncate text-xs text-ink-500">{client.alias}</p>
+                          ) : null}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p
+                            className={[
+                              'tabular text-sm font-black',
+                              enough ? 'text-brand-700' : 'text-rose-700'
+                            ].join(' ')}
+                          >
+                            {formatBs(client.balanceCents)}
+                          </p>
+                          <p className="text-[11px] text-ink-500">
+                            {enough ? 'Alcanza' : 'Insuficiente'}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : null}
+
         {method !== 'cash' &&
         !validation.ok &&
-        (qrReference.trim().length > 0 || cashCents > 0 || qrCents > 0) ? (
+        (qrReference.trim().length > 0 ||
+          cashCents > 0 ||
+          qrCents > 0 ||
+          (method === 'account' && Boolean(selectedClientId))) ? (
           <p className="mt-3 text-sm font-medium text-amber-700">{validation.error}</p>
         ) : null}
 

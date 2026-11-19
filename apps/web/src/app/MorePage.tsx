@@ -15,9 +15,19 @@ const MENU: MenuLink[] = [
     description: 'Ventas, caja y cuentas de clientes.'
   },
   {
+    to: '/mas/auditoria',
+    title: 'Auditoría',
+    description: 'Registro de acciones sensibles y anulaciones.'
+  },
+  {
+    to: '/mas/respaldo',
+    title: 'Respaldo cifrado',
+    description: 'Exportar, restaurar y sincronizar copias cifradas.'
+  },
+  {
     to: '/mas/ajustes',
     title: 'Ajustes',
-    description: 'QR de cobro y preferencias del negocio.'
+    description: 'QR de cobro, nombre del negocio y PIN.'
   }
 ];
 
@@ -74,24 +84,6 @@ export function MorePage() {
               </Link>
             </li>
           ))}
-        </ul>
-
-        <h2 className="mt-5 mb-2 text-xs font-semibold tracking-wide text-ink-500 uppercase">
-          Próximamente
-        </h2>
-        <ul className="space-y-2">
-          <li className="rounded-2xl bg-white/60 px-4 py-4">
-            <p className="text-sm font-semibold text-ink-600">Respaldo cifrado</p>
-            <p className="text-xs text-ink-500">
-              Copia de seguridad en Supabase, cifrada en el teléfono.
-            </p>
-          </li>
-          <li className="rounded-2xl bg-white/60 px-4 py-4">
-            <p className="text-sm font-semibold text-ink-600">Auditoría</p>
-            <p className="text-xs text-ink-500">
-              Historial de acciones sensibles y anulaciones.
-            </p>
-          </li>
         </ul>
 
         <p className="mt-6 text-center text-xs text-ink-400">

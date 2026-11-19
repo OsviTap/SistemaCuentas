@@ -10,20 +10,18 @@ No reemplaza al documento maestro ni al registro de decisiones.
 | 0. Documentación y arquitectura | Completada |
 | 1. Scaffold y shell móvil | Completada |
 | 2. Cobro rápido (keypad, cambio, pagos) | Completada |
-| 3. Venta y caja mínima | Venta transaccional y apertura de caja listas; cierre pendiente |
-| 4. Cierre y reportes | Pendiente |
-| 5. Cuentas de clientes | Pendiente |
-| 6. Servicios y remesas | Pendiente; la pestaña Cobrar muestra un aviso de próxima fase |
-| 7. Respaldo cifrado | Infraestructura remota creada; integración pendiente |
-| 8. Auditoría y endurecimiento | Pendiente |
+| 3. Venta y caja mínima | Completada |
+| 4. Cierre y reportes | Completada (arqueo, cierre Z, reporte X/Z y compartir para WhatsApp) |
+| 5. Cuentas de clientes | Completada (alta, edición, desactivación, depósitos, retiros y pago con saldo) |
+| 6. Servicios y remesas | Completada (catálogo, comisiones, cobro con suministro y remesas a empresas) |
+| 7. Respaldo cifrado | Cifrado/descifrado local, snapshot/restauración y cliente Supabase listos; falta configurar `.env.local` y cuenta de la dueña |
+| 8. Auditoría y endurecimiento | Completada (auditoría visible, anulaciones con reverso y PIN local PBKDF2) |
 | 9. Pruebas E2E e instalación | Pendiente |
 
 ## Próximo paso
 
-1. Cierre y arqueo de caja con conteo físico, diferencias y resumen compartible.
-2. Cuentas de clientes: alta, depósitos, retiros y pago de venta con saldo.
-3. Servicios y remesas.
-4. Respaldo desde la app y cuenta de la dueña.
+1. Configurar `.env.local` + cuenta de la dueña en Supabase para probar la subida en la nube.
+2. Pruebas E2E e instalación en dispositivo móvil (Fase 9).
 
 Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 
@@ -289,6 +287,206 @@ Antes de codificar, revisar `AGENTS.md` y `docs/PROYECTO.md`.
 - Cuentas de clientes y pago con saldo.
 - Cobro real de servicios y remesas.
 - Respaldo cifrado desde la app e inicio de sesión/PIN.
+
+---
+
+## 2026-11-17 — Sesión 3: cierre, arqueo de caja y reportes X/Z
+
+**Objetivo:** completar el ciclo diario de caja con gastos/retiros, arqueo físico por denominaciones, cierre Z inmutable y resumen compartible para WhatsApp.
+
+**Hecho:**
+- Dominio de reportes (`getSessionReportData`, `formatCashReportText`) para generar Reporte X (parcial) y Cierre Z (definitivo).
+- Dominio de caja ampliado:
+  - `sumDenominations` y `denominationType` para conteo boliviano.
+  - `recordCashExpense` para registrar gastos del negocio y retiros de la dueña en una transacción Dexie.
+  - `closeCashSession` para cerrar la sesión de forma inmutable en una transacción Dexie, guardar `cashDenominations` de cierre, calcular diferencias en efectivo y QR, congelar `reportZText` y registrar auditoría (`cash.close` o `cash.close_with_difference`).
+  - `listClosedCashSessions` para consultar sesiones cerradas.
+- Utilidad `shareTextReport` / `copyTextToClipboard` con Web Share API y fallback al portapapeles.
+- UI móvil en Caja e Historial:
+  - `CashExpenseSheet` para gastos y retiros desde la caja abierta.
+  - `CloseCashSheet` con conteo por billetes/monedas o monto directo, edición de QR informado, cálculo de diferencias en tiempo real y nota de cierre.
+  - `CashReportSheet` para ver, copiar o compartir por WhatsApp el Reporte X o el Cierre Z.
+  - Pestaña **Caja** del historial ampliada para listar cierres anteriores y reabrir su Reporte Z congelado.
+
+**Archivos tocados:**
+- `apps/web/src/lib/share.ts`
+- `apps/web/src/domain/reports.ts`
+- `apps/web/src/domain/cash.ts`
+- `apps/web/src/domain/cash.test.ts`
+- `apps/web/src/features/cash/CashReportSheet.tsx`
+- `apps/web/src/features/cash/CashExpenseSheet.tsx`
+- `apps/web/src/features/cash/CloseCashSheet.tsx`
+- `apps/web/src/features/cash/CashPage.tsx`
+- `apps/web/src/features/history/HistoryPage.tsx`
+- `docs/AVANCES.md`
+
+**Decisiones nuevas (ADR):**
+- Ninguna estructural; se sigue el modelo definido en `docs/PROYECTO.md` y `AGENTS.md`.
+
+**Pruebas ejecutadas:**
+- `npm run typecheck`: sin errores.
+- `npm test`: 81 pruebas en 10 archivos, todas pasan.
+- `npm run build`: build de producción con PWA (`dist/sw.js`).
+
+**Problemas encontrados:**
+- Dexie `transaction` requiere pasar un arreglo de tablas cuando se usan 6 o más tablas.
+
+**Pendiente / siguiente:**
+- Cuentas de clientes: alta, búsqueda, depósitos, retiros y pago de venta con saldo.
+- Borrador persistente del carrito e idempotencia de reintentos.
+- Cobro real de servicios y remesas.
+- Respaldo cifrado desde la app e inicio de sesión/PIN.
+
+---
+
+## 2026-11-17 — Sesión 4: cuentas de clientes y cobro con saldo
+
+**Objetivo:** implementar la gestión de cuentas de clientes (alta, edición, desactivación, depósitos, retiros) y el pago de ventas usando el saldo del cliente.
+
+**Hecho:**
+- Dominio de clientes (`apps/web/src/domain/clients.ts`):
+  - `createClient`, `updateClient`, `deactivateClient` (sin borrado físico, con auditoría).
+  - `listActiveClients` (búsqueda normalizada por nombre, apodo o teléfono) y `listClientMovements`.
+  - `recordClientCashOperation` para depósitos y retiros en efectivo o QR: actualiza `accountMovements`, `clients.balanceCents`, `cashMovements` y `auditLogs` en una sola transacción Dexie, validando saldo suficiente.
+- Cobro con saldo en ventas (`payments.ts` y `sales.ts`):
+  - Método `'account'` en `buildPayments` y `createSale`: descuenta el saldo en `clients` y registra `sale_payment` en `accountMovements` sin generar entrada de efectivo/QR en `cashMovements`.
+- Interfaz móvil:
+  - `ClientsPage`, `ClientFormSheet`, `ClientDetailSheet` y `ClientMovementSheet` conectados en `/clientes`.
+  - Cuarta opción **Saldo** en `PaymentSheet` para buscar cliente, ver su saldo y cobrar la venta.
+
+**Archivos tocados:**
+- `apps/web/src/domain/clients.ts`
+- `apps/web/src/domain/clients.test.ts`
+- `apps/web/src/features/checkout/payments.ts`
+- `apps/web/src/domain/sales.ts`
+- `apps/web/src/features/checkout/PaymentSheet.tsx`
+- `apps/web/src/features/clients/ClientsPage.tsx`
+- `apps/web/src/features/clients/ClientFormSheet.tsx`
+- `apps/web/src/features/clients/ClientDetailSheet.tsx`
+- `apps/web/src/features/clients/ClientMovementSheet.tsx`
+- `apps/web/src/app/App.tsx`
+- `docs/AVANCES.md`
+
+**Pruebas ejecutadas:**
+- `npm run typecheck`: sin errores.
+- `npm test`: 85 pruebas en 11 archivos, todas pasan.
+- `npm run build`: build de producción con PWA (`dist/sw.js`).
+
+**Pendiente / siguiente:**
+- Servicios y remesas (pestaña **Cobrar**).
+- Borrador persistente del carrito e idempotencia de reintentos.
+- Respaldo cifrado desde la app y cuenta de la dueña.
+- PIN de acceso y pruebas E2E.
+
+---
+
+## 2026-11-17 — Sesión 5: servicios y remesas
+
+**Objetivo:** implementar el cobro de servicios (luz, agua, recargas, etc.) separando el monto de la empresa prestataria de la comisión del negocio, junto con el registro de remesas pendientes.
+
+**Hecho:**
+- Dominio de servicios (`apps/web/src/domain/services.ts`):
+  - `calculateServiceCommission`: comisión fija + porcentual en puntos base (`bps`).
+  - `createService`, `deactivateService` y `listActiveServices`.
+  - `collectService`: transacción única en Dexie que registra venta (`Sale`), línea de servicio (`SaleItem` con `serviceAmountCents`, `commissionCents`, `providerName`, `supplyNumber`), pagos (`cash`, `qr`, `mixed` o `account`), movimientos de caja/cuenta y auditoría.
+  - `listPendingRemittancesByProvider` y `remitProviderServices` para entregar el dinero pendiente a cada empresa prestataria desde efectivo o QR.
+- Interfaz móvil en `apps/web/src/features/services/`:
+  - `CollectPage`: buscador, servicios activos, badge de remesas pendientes y aviso de caja cerrada.
+  - `ServiceFormSheet`: alta de servicio con comisión fija, porcentaje, monto fijo opcional y requisito de suministro.
+  - `ServiceCollectSheet`: cálculo en vivo de monto + comisión y cobro mediante `PaymentSheet`.
+  - `RemittancesSheet`: listado de pendientes por empresa y registro de remesa.
+
+**Archivos tocados:**
+- `apps/web/src/domain/services.ts`
+- `apps/web/src/domain/services.test.ts`
+- `apps/web/src/features/services/CollectPage.tsx`
+- `apps/web/src/features/services/ServiceFormSheet.tsx`
+- `apps/web/src/features/services/ServiceCollectSheet.tsx`
+- `apps/web/src/features/services/RemittancesSheet.tsx`
+- `docs/AVANCES.md`
+
+**Pruebas ejecutadas:**
+- `npm run typecheck`: sin errores.
+- `npm test`: 89 pruebas en 12 archivos, todas pasan.
+- `npm run build`: build de producción con PWA (`dist/sw.js`).
+
+**Pendiente / siguiente:**
+- Respaldo cifrado desde la app y cuenta de la dueña en Supabase.
+- Anulaciones/reversos en UI, PIN de acceso y pruebas E2E.
+
+---
+
+## 2026-11-17 — Sesión 6: respaldo cifrado local y cliente Supabase
+
+**Objetivo:** implementar la compresión y cifrado local del respaldo (`fflate` + Web Crypto + Zod), la restauración en otro contexto y la integración cliente con Supabase.
+
+**Hecho:**
+- Dependencias instaladas en `@mariel/web`: `fflate`, `@supabase/supabase-js` y `zod`.
+- Criptografía local (`apps/web/src/lib/crypto.ts`):
+  - `encryptBytes` y `decryptBytes` con cabecera `MARIEL1`, salt de 16 bytes, IV de 12 bytes, PBKDF2-SHA-256 (210.000 iteraciones) y AES-GCM-256.
+  - `sha256Hex` para verificación de integridad.
+- Snapshot y restauración (`apps/web/src/features/backup/snapshot.ts`):
+  - `exportEncryptedBackup`: exporta tablas de Dexie (modo `quick` sin adjuntos o `full` con adjuntos en base64), comprime con `fflate.gzipSync` y cifra en el teléfono.
+  - `restoreEncryptedBackup`: descifra, descomprime, valida esquema con Zod y restaura en una sola transacción Dexie registrando `backup.restore` en auditoría.
+- Cliente Supabase (`apps/web/src/features/backup/supabaseClient.ts`):
+  - Lee `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`, maneja login de dueña, subida al bucket privado `mariel-backups`, inserción en `backup_manifests` y descarga para restauración.
+- UI en **Más → Respaldo cifrado** (`BackupPage.tsx` en `/mas/respaldo`).
+
+**Archivos tocados:**
+- `package-lock.json`, `apps/web/package.json`
+- `apps/web/src/lib/crypto.ts`, `apps/web/src/lib/crypto.test.ts`
+- `apps/web/src/features/backup/snapshot.ts`, `apps/web/src/features/backup/snapshot.test.ts`
+- `apps/web/src/features/backup/supabaseClient.ts`
+- `apps/web/src/features/backup/BackupPage.tsx`
+- `apps/web/src/app/App.tsx`, `apps/web/src/app/MorePage.tsx`
+- `docs/AVANCES.md`
+
+**Pruebas ejecutadas:**
+- `npm run typecheck`: sin errores.
+- `npm test`: 94 pruebas en 14 archivos, todas pasan.
+- `npm run build`: build de producción con PWA (`dist/sw.js`).
+
+**Pendiente / siguiente:**
+- Configurar `.env.local` con la publishable key de Supabase, reactivar Email provider (con registro público apagado) y crear la cuenta de la dueña.
+- Fase 8: auditoría visible, anulaciones/reversos en UI y PIN de acceso/autorización.
+- Fase 9: pruebas E2E e instalación móvil.
+
+---
+
+## 2026-11-17 — Sesión 7: auditoría, anulaciones y PIN local
+
+**Objetivo:** completar la capa de control operativo con anulación reversible de ventas, pantalla de auditoría, datos del negocio y PIN local de bloqueo/autorización.
+
+**Hecho:**
+- Anulaciones (`voidSale` en `apps/web/src/domain/sales.ts`):
+  - Exige motivo y que la venta pertenezca a la sesión abierta.
+  - Marca la venta como `voided`, revierte caja (`cashMovements`) o saldo de cliente (`accountMovements` + `clients.balanceCents`) y registra `sale.void` en auditoría dentro de una sola transacción Dexie.
+  - Botón **Anular** en `HistoryPage` (con verificación de PIN si está activo).
+- Seguridad por PIN (`apps/web/src/domain/pin.ts` y `PinLockGate.tsx`):
+  - Hash PBKDF2-SHA-256 con salt único en `users` (nunca se guarda el PIN en claro).
+  - Pantalla de bloqueo al iniciar si hay PIN configurado.
+  - Configuración/cambio/eliminación de PIN y edición de nombre del negocio en `SettingsPage.tsx`.
+- Auditoría (`apps/web/src/features/audit/AuditPage.tsx`):
+  - Nueva ruta `/mas/auditoria` desde **Más → Auditoría** con los últimos 100 eventos en hora local de Bolivia.
+
+**Archivos tocados:**
+- `apps/web/src/domain/sales.ts`
+- `apps/web/src/domain/pin.ts`, `apps/web/src/domain/pin.test.ts`
+- `apps/web/src/features/audit/AuditPage.tsx`
+- `apps/web/src/features/settings/PinLockGate.tsx`
+- `apps/web/src/features/settings/SettingsPage.tsx`
+- `apps/web/src/features/history/HistoryPage.tsx`
+- `apps/web/src/app/App.tsx`, `apps/web/src/app/MorePage.tsx`
+- `docs/AVANCES.md`
+
+**Pruebas ejecutadas:**
+- `npm run typecheck`: sin errores.
+- `npm test`: 96 pruebas en 15 archivos, todas pasan.
+- `npm run build`: build de producción con PWA (`dist/sw.js`).
+
+**Pendiente / siguiente:**
+- Configurar `.env.local` con la publishable key de Supabase y crear la cuenta de la dueña.
+- Fase 9: pruebas E2E e instalación móvil.
 
 ---
 

@@ -10,17 +10,37 @@ import {
   listSessionMovements,
   openCashSession
 } from '../../domain/cash';
-import { formatDateTime } from '../../lib/dates';
+import { formatCashReportText, getSessionReportData } from '../../domain/reports';
+import { formatDateTime, nowIso } from '../../lib/dates';
 import { CASH_MOVEMENT_LABELS } from '../../lib/labels';
 import { formatBs } from '../../lib/money';
+import { CashExpenseSheet } from './CashExpenseSheet';
+import { CashReportSheet } from './CashReportSheet';
+import { CloseCashSheet } from './CloseCashSheet';
 
 function movementLabel(movement: CashMovement): string {
   return CASH_MOVEMENT_LABELS[movement.type] ?? movement.type;
 }
 
-function CajaOpen({ session }: { session: CashSession }) {
+function CajaOpen({
+  session,
+  onShowReportX,
+  onClosed
+}: {
+  session: CashSession;
+  onShowReportX: (reportText: string) => void;
+  onClosed: (closedSession: CashSession) => void;
+}) {
   const totals = useLiveQuery(() => getSessionTotals(session), [session.id]);
   const movements = useLiveQuery(() => listSessionMovements(session.id, 6), [session.id]);
+  const [showExpense, setShowExpense] = useState(false);
+  const [showClose, setShowClose] = useState(false);
+
+  const handleReportX = async () => {
+    const data = await getSessionReportData(session);
+    const text = formatCashReportText(data, { kind: 'X', generatedAt: nowIso() });
+    onShowReportX(text);
+  };
 
   return (
     <div className="px-4 pb-6">
@@ -32,13 +52,13 @@ function CajaOpen({ session }: { session: CashSession }) {
           {formatBs(totals?.expectedCashCents ?? session.openingCashCents)}
         </p>
         <p className="mt-2 text-xs text-ink-300">
-          Incluye {formatBs(session.openingCashCents)} de apertura y el efectivo cobrado.
+          Incluye {formatBs(session.openingCashCents)} de apertura y movimientos en efectivo.
         </p>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="rounded-2xl bg-white p-4">
-          <p className="text-xs font-medium tracking-wide text-ink-500 uppercase">QR cobrado</p>
+          <p className="text-xs font-medium tracking-wide text-ink-500 uppercase">QR esperado</p>
           <p className="tabular mt-1 text-xl font-bold text-ink-900">
             {formatBs(totals?.expectedQrCents ?? session.openingQrCents)}
           </p>
@@ -49,6 +69,23 @@ function CajaOpen({ session }: { session: CashSession }) {
             {totals?.salesCount ?? 0}
           </p>
         </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => void handleReportX()}
+          className="flex h-12 items-center justify-center rounded-2xl bg-white text-sm font-bold text-ink-800 active:bg-ink-200"
+        >
+          Reporte X
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowExpense(true)}
+          className="flex h-12 items-center justify-center rounded-2xl bg-white text-sm font-bold text-ink-800 active:bg-ink-200"
+        >
+          Gasto / Retiro
+        </button>
       </div>
 
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm">
@@ -92,7 +129,7 @@ function CajaOpen({ session }: { session: CashSession }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink-900">
-                    {movementLabel(movement)}
+                    {movement.description ? `${movementLabel(movement)} · ${movement.description}` : movementLabel(movement)}
                   </p>
                   <p className="text-xs text-ink-500">
                     {movement.medium === 'cash' ? 'Efectivo' : 'QR'} ·{' '}
@@ -108,19 +145,33 @@ function CajaOpen({ session }: { session: CashSession }) {
         )}
       </section>
 
-      <Link
-        to="/mas/historial"
-        className="mt-4 flex h-12 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-ink-700 active:bg-ink-200"
+      <button
+        type="button"
+        onClick={() => setShowClose(true)}
+        className="mt-5 h-14 w-full rounded-2xl bg-ink-900 text-base font-bold text-white active:bg-ink-800"
       >
-        Historial de caja
-      </Link>
+        Cerrar caja (Arqueo Z)
+      </button>
 
-      <div className="mt-3 rounded-2xl border border-dashed border-ink-300 px-4 py-3 text-center">
-        <p className="text-sm font-semibold text-ink-700">Cerrar caja</p>
-        <p className="mt-1 text-xs text-ink-500">
-          El arqueo y cierre con conteo físico se habilitan en la siguiente fase.
-        </p>
-      </div>
+      {showExpense ? (
+        <CashExpenseSheet
+          onCancel={() => setShowExpense(false)}
+          onSaved={() => setShowExpense(false)}
+        />
+      ) : null}
+
+      {showClose ? (
+        <CloseCashSheet
+          session={session}
+          expectedCashCents={totals?.expectedCashCents ?? session.openingCashCents}
+          expectedQrCents={totals?.expectedQrCents ?? session.openingQrCents}
+          onCancel={() => setShowClose(false)}
+          onClosed={(closedSession) => {
+            setShowClose(false);
+            onClosed(closedSession);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -134,6 +185,11 @@ export function CashPage() {
   const [openingCashCents, setOpeningCashCents] = useState(0);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reportSheet, setReportSheet] = useState<{
+    title: string;
+    subtitle?: string;
+    text: string;
+  } | null>(null);
 
   const handleOpen = async () => {
     if (opening) return;
@@ -142,12 +198,14 @@ export function CashPage() {
 
     try {
       await openCashSession({ openingCashCents });
+      setOpeningCashCents(0);
     } catch (caught) {
       setError(
         caught instanceof CashError || caught instanceof Error
           ? caught.message
           : 'No se pudo abrir la caja.'
       );
+    } finally {
       setOpening(false);
     }
   };
@@ -207,9 +265,36 @@ export function CashPage() {
             </button>
           </div>
         ) : (
-          <CajaOpen session={session} />
+          <CajaOpen
+            session={session}
+            onShowReportX={(text) =>
+              setReportSheet({
+                title: 'Reporte X (Parcial)',
+                subtitle: `Sesión ${session.number} · La caja sigue abierta`,
+                text
+              })
+            }
+            onClosed={(closedSession) => {
+              if (closedSession.reportZText) {
+                setReportSheet({
+                  title: 'Cierre Z completado',
+                  subtitle: `Sesión ${closedSession.number} · Congelada`,
+                  text: closedSession.reportZText
+                });
+              }
+            }}
+          />
         )}
       </div>
+
+      {reportSheet ? (
+        <CashReportSheet
+          title={reportSheet.title}
+          subtitle={reportSheet.subtitle}
+          reportText={reportSheet.text}
+          onClose={() => setReportSheet(null)}
+        />
+      ) : null}
     </div>
   );
 }

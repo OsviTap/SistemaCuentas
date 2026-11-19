@@ -11,6 +11,7 @@
     "build": "npm run build -w @mariel/web",
     "preview": "npm run preview -w @mariel/web",
     "test": "npm run test -w @mariel/web",
+    "test:e2e": "npm run test:e2e -w @mariel/web",
     "typecheck": "npm run typecheck -w @mariel/web"
   },
   "engines": {
