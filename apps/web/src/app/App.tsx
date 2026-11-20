@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { PwaUpdateBanner } from '../components/PwaUpdateBanner';
 import { Shell } from './Shell';
 import { MorePage } from './MorePage';
 import { AuditPage } from '../features/audit/AuditPage';
@@ -14,6 +15,7 @@ import { SettingsPage } from '../features/settings/SettingsPage';
 export function App() {
   return (
     <PinLockGate>
+      <PwaUpdateBanner />
       <BrowserRouter>
         <Routes>
           <Route element={<Shell />}>

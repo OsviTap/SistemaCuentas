@@ -49,8 +49,9 @@ const KEYS: KeyDefinition[][] = [
     { label: '+', action: { type: 'operator', operator: '+' }, variant: 'operator' }
   ],
   [
-    { label: '0', action: { type: 'digit', digit: '0' }, span: 2 },
+    { label: '0', action: { type: 'digit', digit: '0' } },
     { label: ',', action: { type: 'decimal' } },
+    { label: '⌫', action: { type: 'backspace' }, variant: 'muted' },
     { label: '=', action: { type: 'equals' }, variant: 'equals' }
   ]
 ];
