@@ -41,7 +41,7 @@ export function MoneyKeypad({ valueCents, onChange }: MoneyKeypadProps) {
             'h-14 rounded-2xl text-2xl font-semibold transition-colors select-none',
             'active:scale-[0.98] active:bg-ink-200',
             key === 'del'
-              ? 'bg-ink-100 text-ink-500'
+              ? 'bg-rose-100 text-rose-800 shadow-sm active:bg-rose-200'
               : 'bg-white text-ink-900 shadow-sm'
           ].join(' ')}
         >

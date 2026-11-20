@@ -14,10 +14,11 @@ type CalculatorSheetProps = {
   onClose: () => void;
 };
 
-type KeyVariant = 'number' | 'muted' | 'operator' | 'equals';
+type KeyVariant = 'number' | 'muted' | 'operator' | 'equals' | 'backspace';
 
 type KeyDefinition = {
   label: string;
+  ariaLabel?: string;
   action: CalculatorAction;
   variant?: KeyVariant;
   span?: 2;
@@ -51,7 +52,12 @@ const KEYS: KeyDefinition[][] = [
   [
     { label: '0', action: { type: 'digit', digit: '0' } },
     { label: ',', action: { type: 'decimal' } },
-    { label: '⌫', action: { type: 'backspace' }, variant: 'muted' },
+    {
+      label: '⌫',
+      ariaLabel: 'Borrar último dígito',
+      action: { type: 'backspace' },
+      variant: 'backspace'
+    },
     { label: '=', action: { type: 'equals' }, variant: 'equals' }
   ]
 ];
@@ -67,6 +73,8 @@ function keyClass(variant: KeyVariant = 'number'): string {
       return `${base} bg-brand-100 text-brand-800 active:bg-brand-200`;
     case 'equals':
       return `${base} bg-brand-600 text-white active:bg-brand-700`;
+    case 'backspace':
+      return `${base} bg-rose-100 text-rose-800 shadow-sm active:bg-rose-200`;
     default:
       return `${base} bg-white text-ink-900 shadow-sm active:bg-ink-100`;
   }
@@ -186,6 +194,7 @@ export function CalculatorSheet({ onClose }: CalculatorSheetProps) {
                     <button
                       key={key.label}
                       type="button"
+                      aria-label={key.ariaLabel}
                       onClick={() => handleKey(key.action)}
                       className={[keyClass(key.variant), key.span === 2 ? 'col-span-2' : ''].join(' ')}
                     >
